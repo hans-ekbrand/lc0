@@ -792,8 +792,6 @@ EdgeAndNode Search::GetBestRootChildWithTemperature(float temperature) const {
       std::lower_bound(cumulative_sums.begin(), cumulative_sums.end(), toss) -
       cumulative_sums.begin();
 
-  // const float closeness_to_the_edge = std::fabs(0.5 - std::fabs(max_eval));
-
   for (auto& edge : root_node_->Edges()) {
     if (!root_move_filter_.empty() &&
         std::find(root_move_filter_.begin(), root_move_filter_.end(),
@@ -802,49 +800,20 @@ EdgeAndNode Search::GetBestRootChildWithTemperature(float temperature) const {
     }
     if (edge.GetQ(fpu, draw_score) < min_eval) continue;
     if (idx-- == 0) {
-      // The even play: allow the suggested temperature move wherever it takes me.
-      // unbalanced play: allow the suggested temperature move only if makes abs(Q) come closer to 0.5
-
-      // For an unbalanced strategy favouring the dominant player you could try this
-      // The dominant player: try to win
-      // The dominated player: cooperate until Q is -0.5, then start fighting back
-      // always allow temp moves that improves Q
-      // When one side has got an edge, say at Q < 0.3, then start being greedy and deny temperature moves that will worsen Q.
-      // If Q < -0.3 then
-          // allow temp moves that makes Q closer to -0.5, but deny temp moves that makes Q further away from -0.5, e.g.
-          // deny suggestion to go from -0.44 to -0.59, but allow to go to -0.53 since -0.5-0.53 < -0.5-0.44 and -0.5-0.44 < -0.5 - -0.59
-
       if(std::fabs(max_eval) < 0.5) {
-	// even play, allow everything.
+	// balanced play, allow everything.
 	return edge;
       }
       if(std::fabs(max_eval) >= 0.5) {
-	// unbalanced play, allow temp only if it appears to not worsen the position.
+	// unbalanced play, allow temp only if it appears to not worsen the position for the current player.
 	if(max_eval - edge.GetQ(fpu, draw_score) > 0.01) {
-	  // if(max_eval - edge.GetQ(fpu, draw_score) > 0.1){
-	  //   LOGFILE << "Denying temp move in unbalanced play since most visited move " << max_eval << " is better than temperature suggested move " << edge.GetQ(fpu, draw_score);
-	  // }
+	  // apparent regressions that are really noise (delta Q < 0.01) are allowed.
 	  return(GetBestChildNoTemperature(root_node_, 0));
 	} else {
-	  // Allowing temperature move in unbalanced play since it has better Q than max_eval
-	  // LOGFILE << "Allowing temp move in unbalanced play since most visited move " << max_eval << " is not really worse than temperature suggested move " << edge.GetQ(fpu, draw_score);
+	  // Allowing temperature move in unbalanced play since it has better Q for the current player than max_eval
 	  return edge;
 	}
       }
-
-      // But for now, use a balanced strategy, same for dominant and dominated.
-      // if(std::fabs(max_eval) < 0.3) {
-      // 	// even play, allow everything.
-      // 	return edge;
-      // }
-      // if(std::fabs(max_eval) >= 0.3) {
-      // 	// unbalanced play, allow temp only if it improves the position.
-      // 	if(std::fabs(0.5 - std::fabs(edge.GetQ(fpu, draw_score))) > closeness_to_the_edge) {
-      // 	  return(GetBestChildNoTemperature(root_node_, 0));
-      // 	}
-      // }
-      // Allowing temperature move in unbalanced play since abs(Q) will be closer to 0.5
-      // return edge;
     }
   }
   assert(false);
