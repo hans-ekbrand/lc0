@@ -800,11 +800,12 @@ EdgeAndNode Search::GetBestRootChildWithTemperature(float temperature) const {
     }
     if (edge.GetQ(fpu, draw_score) < min_eval) continue;
     if (idx-- == 0) {
-      if(std::fabs(max_eval) < 0.5) {
+      // using 0.5 as threshold leads to too low drawrate: 0.06. Vanilla temperature strategy has a draw rate of 0.085, so try to match that by decreasing the threshold to 0.4.
+      if(std::fabs(max_eval) < 0.4) {
 	// balanced play, allow everything.
 	return edge;
       }
-      if(std::fabs(max_eval) >= 0.5) {
+      if(std::fabs(max_eval) >= 0.4) {
 	// unbalanced play, allow temp only if it appears to not worsen the position for the current player.
 	if(max_eval - edge.GetQ(fpu, draw_score) > 0.01) {
 	  // apparent regressions that are really noise (delta Q < 0.01) are allowed.
