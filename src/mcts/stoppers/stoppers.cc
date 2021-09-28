@@ -287,17 +287,6 @@ bool SmartPruningStopper::ShouldStop(const IterationStats& stats,
     }
   }
 
-  if(index_of_largest_n != index_of_highest_q){
-    // Experiment: do this even if highest N is not guaranteed to stay highest N.
-    // To not mess up PUCT too much, only consider this when half of the budget nodes is evaluted
-    if(remaining_playouts < (nodes + remaining_playouts) / 2){
-      // Help search to focus on this child:
-      hints->UpdateIndexOfBestEdge(index_of_highest_q);
-      LOGFILE << "Interfering with PUCT since remaining nodes is less than half of budget and best root-edge hasn't the most visits";
-    }
-  }
-
-
   if (remaining_playouts < (largest_n - second_largest_n)) {
 
     // Reject early stop if Expected Q and N disagrees
@@ -318,6 +307,16 @@ bool SmartPruningStopper::ShouldStop(const IterationStats& stats,
             << stats.batches_since_movestart << " batches.";
 
     return true;
+  }
+
+  if(index_of_largest_n != index_of_highest_q){
+    // Experiment: do this even if highest N is not guaranteed to stay highest N.
+    // To not mess up PUCT too much, only consider this when 2/3 of the budget nodes is evaluted
+    if(remaining_playouts < (nodes + remaining_playouts) * 2 / 3){
+      // Help search to focus on this child:
+      hints->UpdateIndexOfBestEdge(index_of_highest_q);
+      LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << "Interfering with PUCT since remaining nodes is less than half of budget and best root-edge hasn't the most visits: promising node has " << stats.edge_n[index_of_highest_q] << " nodes and most visited node has " << stats.edge_n[index_of_largest_n] << " visits.";
+    }
   }
 
   return false;
