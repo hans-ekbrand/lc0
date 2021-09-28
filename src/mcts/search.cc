@@ -535,7 +535,7 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
       number_of_skipped_playouts = hints->GetEstimatedRemainingPlayouts();
       FireStopInternal();
     } else {
-      // If ShouldStop was rejected due to the most visted move not having the best expected Q, then improve search by boosting exploration of edge of root with the highest expected Q.
+      // If ShouldStop was rejected due to the most visted move not having the best expected Q (or half of the node budget was used up), then improve search by boosting exploration of edge of root with the highest expected Q.
       if(hints->GetIndexOfBestEdge() > -1){
 	this_edge_has_higher_expected_q_than_the_most_visited_child = hints->GetIndexOfBestEdge();
       } else {
