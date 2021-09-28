@@ -1675,15 +1675,15 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
             cache_filled_idx++;
           }
           if (is_root_node) {
-	    // If params_.GetQBasedMoveSelection() is false and 
-            // there's no chance to catch up to the current best node with
+	    // If there's no chance to catch up to the current best node with
             // remaining playouts, don't consider it.
             // best_move_node_ could have changed since best_node_n was
             // retrieved. To ensure we have at least one node to expand, always
             // include current best node.
-            if (!params_.GetQBasedMoveSelection() && cur_iters[idx] != search_->current_best_edge_ &&
+            if (cur_iters[idx] != search_->current_best_edge_ &&
                 latest_time_manager_hints_.GetEstimatedRemainingPlayouts() <
                     best_node_n - cur_iters[idx].GetN()) {
+	      this_edge_has_higher_expected_q_than_the_most_visited_child = -1;
               continue;
             }
             // If root move filter exists, make sure move is in the list.
@@ -1716,13 +1716,12 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
           }
         }
 
-	// Hack the scores if the child with highest expected Q does not have most visits, ie boost exploration of that child.
-	if(is_root_node && params_.GetQBasedMoveSelection() &&
-	   this_edge_has_higher_expected_q_than_the_most_visited_child > -1){
-	  if(this_edge_has_higher_expected_q_than_the_most_visited_child != best_idx){
+	// Hack the scores if the child with highest expected Q does not have most visits, ie boost exploration of that child, if it still can catch up.
+	if(is_root_node &&
+	   this_edge_has_higher_expected_q_than_the_most_visited_child > -1 &&
+	   this_edge_has_higher_expected_q_than_the_most_visited_child != best_idx){
 	    best_idx = this_edge_has_higher_expected_q_than_the_most_visited_child;
 	    best_edge = cur_iters[best_idx];
-	  }
 	}
 
         int new_visits = 0;

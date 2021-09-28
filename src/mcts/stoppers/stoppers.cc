@@ -230,9 +230,27 @@ bool SmartPruningStopper::ShouldStop(const IterationStats& stats,
   hints->UpdateEstimatedRemainingPlayouts(remaining_playouts);
   if (stats.batches_since_movestart < minimum_batches_) return false;
 
-  // Don't stop early unless node with highest visits also has the
-  // highest Expected Q. +remaining playouts increases the strength of
-  // the pessimistic prior, so more pruning suggestions are accepted.
+  uint32_t largest_n = 0;
+  uint32_t second_largest_n = 0;
+  for (auto n : stats.edge_n) {
+    if (n > largest_n) {
+      second_largest_n = largest_n;
+      largest_n = n;
+    } else if (n > second_largest_n) {
+      second_largest_n = n;
+    }
+  }
+
+  if (remaining_playouts < (largest_n - second_largest_n)) {
+
+    LOGFILE << remaining_playouts << " playouts remaining. Best move has "
+            << largest_n << " visits, second best -- " << second_largest_n
+            << ". Difference is " << (largest_n - second_largest_n)
+            << ", so stopping the search after "
+            << stats.batches_since_movestart << " batches.";
+
+    return true;
+  }
 
   // The idea behind * pow(nodes/(nodes + remaining_playouts), 0.5) is
   // that early on a weaker promise is enough to motivate rejection of
@@ -276,46 +294,12 @@ bool SmartPruningStopper::ShouldStop(const IterationStats& stats,
     }
   }
 
-  uint32_t largest_n = 0;
-  uint32_t second_largest_n = 0;
-  for (auto n : stats.edge_n) {
-    if (n > largest_n) {
-      second_largest_n = largest_n;
-      largest_n = n;
-    } else if (n > second_largest_n) {
-      second_largest_n = n;
-    }
-  }
-
-  if (remaining_playouts < (largest_n - second_largest_n)) {
-
-    // Reject early stop if Expected Q and N disagrees
-    if(index_of_largest_n != index_of_highest_q){
-      LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << " Rejected smart pruning since child (" << index_of_largest_n << ") is the child with largest n=" << stats.edge_n[index_of_largest_n] << ", but has lower Expected Q=" << expected_q[index_of_largest_n] << "(raw Q=" << stats.q[index_of_largest_n] << ") than child (" << index_of_highest_q << ") which has Expected Q=" << expected_q[index_of_highest_q] << "(raw Q=" << stats.q[index_of_highest_q] << ") and n=" << stats.edge_n[index_of_highest_q];
-      // Help search to focus on this child:
-      hints->UpdateIndexOfBestEdge(index_of_highest_q);
-      return false;
-    } else {
-      LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << " Accepted smart pruning since child with largest n: " <<
-    	index_of_largest_n << ", which has " << my_largest_n << " visits also has highest Expected Q=" << expected_q[index_of_largest_n] << " (raw Q=" << stats.q[index_of_largest_n] << ")";
-    }
-
-    LOGFILE << remaining_playouts << " playouts remaining. Best move has "
-            << largest_n << " visits, second best -- " << second_largest_n
-            << ". Difference is " << (largest_n - second_largest_n)
-            << ", so stopping the search after "
-            << stats.batches_since_movestart << " batches.";
-
-    return true;
-  }
-
   if(index_of_largest_n != index_of_highest_q){
-    // Experiment: do this even if highest N is not guaranteed to stay highest N.
-    // To not mess up PUCT too much, only consider this when 2/3 of the budget nodes is evaluted
+    // To not mess up PUCT too much, only consider this when 1 / 2 of the budget nodes is evaluted
     if(remaining_playouts < (nodes + remaining_playouts) * 1 / 2){
       // Help search to focus on this child:
       hints->UpdateIndexOfBestEdge(index_of_highest_q);
-      LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << "Interfering with PUCT since remaining nodes is less than half of budget and best root-edge hasn't the most visits: promising node has " << stats.edge_n[index_of_highest_q] << " nodes and most visited node has " << stats.edge_n[index_of_largest_n] << " visits.";
+      LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << " Interfering with PUCT since remaining nodes is less than half of budget and best root-edge hasn't the most visits: promising node has " << stats.edge_n[index_of_highest_q] << " nodes and most visited node has " << stats.edge_n[index_of_largest_n] << " visits.";
     }
   }
 
