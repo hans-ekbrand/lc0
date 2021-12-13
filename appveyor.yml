@@ -69,6 +69,7 @@ install:
 - cmd: IF DEFINED CUDA_INSTALL appveyor DownloadFile https://developer.download.nvidia.com/compute/cuda/11.1.0/network_installers/cuda_11.1.0_win10_network.exe
 - cmd: IF DEFINED CUDA_INSTALL cuda_11.1.0_win10_network.exe -s nvcc_11.1 cublas_dev_11.1 cublas_11.1 cudart_11.1 documentation_11.1
 - cmd: IF %CUDA%==true set PATH=%CUDA_PATH%\bin;%PATH%
+- cmd: set BOOST_ROOT=C:\Libraries\boost_1_78_0
 - cmd: set PATH=C:\Python36;C:\Python36\scripts;%PATH%
 - cmd: pip3 install --upgrade meson==0.55.3
 - cmd: call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
