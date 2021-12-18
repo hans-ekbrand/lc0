@@ -326,9 +326,9 @@ const OptionId SearchParams::kAuxEngineOptionsId{
 const OptionId SearchParams::kAuxEngineThresholdId{
     "auxengine-threshold", "AuxEngineThreshold",
     "The auxiliary engine is called when a node reaches this many visits"};
-const OptionId SearchParams::kAuxEngineTimeId{
-    "auxengine-time", "AuxEngineTime",
-    "Time (in milliseconds) for the auxiliary engine to search."};
+const OptionId SearchParams::kAuxEngineDepthId{
+    "auxengine-depth", "AuxEngineDepth",
+    "Depth for the auxiliary engine search."};
 const OptionId SearchParams::kAuxEngineVerbosityId{
     "auxengine-verbosity", "AuxEngineVerbosity",
     "Higher number for more logging."};
@@ -434,7 +434,7 @@ void SearchParams::Populate(OptionsParser* options) {
   options->Add<StringOption>(kAuxEngineFileId);
   options->Add<StringOption>(kAuxEngineOptionsId);
   options->Add<IntOption>(kAuxEngineThresholdId, 1, 1000000) = 250;
-  options->Add<IntOption>(kAuxEngineTimeId, 10, 10000) = 350;
+  options->Add<IntOption>(kAuxEngineDepthId, 10, 10000) = 350;
   options->Add<IntOption>(kAuxEngineVerbosityId, 0, 10) = 1;
 }
 

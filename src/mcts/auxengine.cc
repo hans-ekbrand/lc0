@@ -238,7 +238,7 @@ void Search::DoAuxEngine(Node* n) {
 
   auto auxengine_start_time = std::chrono::steady_clock::now();
   auxengine_os_ << s << std::endl;
-  auxengine_os_ << "go movetime " << params_.GetAuxEngineTime() << std::endl;  
+  auxengine_os_ << "go depth " << params_.GetAuxEngineDepth() << std::endl;
 
   auxengine_stopped_mutex_.lock();
   if(auxengine_stopped_){
