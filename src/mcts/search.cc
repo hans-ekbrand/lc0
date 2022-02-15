@@ -613,10 +613,10 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
       !bestmove_is_sent_) {
 
     this_tread_triggered_stop = true;
-    search_stats_->auxengine_stopped_mutex_.lock();
     // Check the status for each thread, and act accordingly
     // give the helper engines some slack, perhaps they were started just a millisecond ago.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    search_stats_->auxengine_stopped_mutex_.lock();
     for(long unsigned int i = 0; i < search_stats_->auxengine_stopped_.size() ; i++){
       if(!search_stats_->auxengine_stopped_[i]){
 	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "MaybeTriggerStop() Stopping the A/B helper Start for thread=" << i << " Start.";
@@ -1224,11 +1224,13 @@ void SearchWorker::ExecuteOneIteration() {
   const std::shared_ptr<Search::adjust_policy_stats> foo = PreExtendTreeAndFastTrackForNNEvaluation();
   // std::queue<std::vector<Node*>> queue_of_vector_of_nodes_from_helper_added_by_this_thread = PreExtendTreeAndFastTrackForNNEvaluation();
 
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " PreExtendTreeAndFastTrackForNNEvaluation() finished in ExecuteOneIteration().";
   // 2. Gather minibatch.
   GatherMinibatch2();
   task_count_.store(-1, std::memory_order_release);
   search_->backend_waiting_counter_.fetch_add(1, std::memory_order_relaxed);
-
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "GatherMinibatch2() finished in ExecuteOneIteration().";
+  
   // 2b. Collect collisions.
   CollectCollisions();
 
@@ -1242,15 +1244,18 @@ void SearchWorker::ExecuteOneIteration() {
   // 4. Run NN computation.
   RunNNComputation();
   search_->backend_waiting_counter_.fetch_add(-1, std::memory_order_relaxed);
-
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " RunNNComputation() finished in ExecuteOneIteration().";
+  
   // 5. Retrieve NN computations (and terminal values) into nodes.
   FetchMinibatchResults();
-
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " FetchMinibatchResults() finished in ExecuteOneIteration().";
+  
   // 6. Propagate the new nodes' information to all their parents in the tree.
   DoBackupUpdate();
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " DoBackupUpdate() finished in ExecuteOneIteration().";
 
   MaybeAdjustPolicyForHelperAddedNodes(foo);
-  // MaybeAdjustPolicyForHelperAddedNodes(queue_of_vector_of_nodes_from_helper_added_by_this_thread);
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " MaybeAdjustPolicyForHelperAddedNodes() finished in ExecuteOneIteration().";
 
   // 7. Update the Search's status and progress information.
   UpdateCounters();
@@ -1292,11 +1297,11 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
   bool black_to_move = ! search_->played_history_.IsBlackToMove() ^ (ply % 2 == 0);
   bool edge_found = false;
 
-  // Check if search is stopped.
-  if(search_->stop_.load(std::memory_order_acquire)){
-    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner() returning early because search is stopped";
-    return;
-  }
+  // // Check if search is stopped.
+  // if(search_->stop_.load(std::memory_order_acquire)){
+  //   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner() returning early because search is stopped";
+  //   return;
+  // }
   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Trying to get a lock on nodes reading for node: " << my_node->DebugString();
   search_->nodes_mutex_.lock_shared();
   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Got a lock on nodes reading for node: " << my_node->DebugString();
@@ -1318,37 +1323,46 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
     return;
   }
 
-  // Before finding the edge that corresponds to the move suggested by
-  // the helper, find leelas preferred move, and if that move hasn't
-  // already been queried, enqueue it
-
-  // Find out if there are extended siblings
-  if(my_node->GetN() > 1){
-    const EdgeAndNode Leelas_favourite = search_->GetBestChildNoTemperature(my_node, ply);
-    if(my_node->GetAuxEngineMove() == 0xffff){
-      if(Leelas_favourite.HasNode()){
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move has not been queried, it is " << Leelas_favourite.GetMove(black_to_move).as_string() << ", node: " << Leelas_favourite.DebugString() << ", queueing it now.";
-	if(!my_node->IsTerminal() &&
-	   my_node->HasChildren()){
-	  AuxMaybeEnqueueNode(Leelas_favourite.node());
-	} else {
-	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move is probably terminal, do not queue it.";
-	}
-      }
-    } else {
-      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move has already been queried. It is " << Leelas_favourite.GetMove(black_to_move).as_string() << ", node: " << Leelas_favourite.DebugString();
-    }
-  } else {
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "my_node has no children, so the added node has no obvious challengers to enqueue.";
-  }
-
   // Find the edge
   for (auto& edge : my_node->Edges()) {
     if(edge.GetMove() == my_moves[ply] ){
       edge_found = true;
+
+      // Queue Leelas favourite node START
+      // If there are children, find leelas preferred move, and if that move hasn't
+      // already been queried, enqueue it, unless it is the same move as the helper suggests
+      if(my_node->GetN() > 0){
+	const EdgeAndNode Leelas_favourite = search_->GetBestChildNoTemperature(my_node, ply); // is this safe, or does it change my_node?
+	if(Leelas_favourite != edge){
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move: " << Leelas_favourite.GetMove(black_to_move).as_string() << " is not the same has the helper recommendation " << edge.GetMove(black_to_move).as_string();
+	  if(Leelas_favourite.HasNode()){
+	    if(Leelas_favourite.node()->GetAuxEngineMove() == 0xffff){
+	      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move has not been queried, it is " << Leelas_favourite.GetMove(black_to_move).as_string() << ", node: " << Leelas_favourite.DebugString() << ", queueing it now.";
+	      Node * n = Leelas_favourite.node();
+	      // Check that it's not terminal
+	      if(!n->IsTerminal()){
+		AuxMaybeEnqueueNode(n);
+	      } else {
+		if(params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move leads to a terminal node: " << n->DebugString();
+	      }
+	    } else {
+	      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move has already been queried. It is " << Leelas_favourite.GetMove(black_to_move).as_string() << ", node: " << Leelas_favourite.DebugString();
+	    }
+	  }
+	} else {
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move is the same as the move recommmended by the helper.";
+	  // queue it anyway, if has a visited node, unless it was already queued.
+	  if(Leelas_favourite.HasNode() && Leelas_favourite.node()->GetN() > 0 && Leelas_favourite.node()->GetAuxEngineMove() == 0xffff && !Leelas_favourite.node()->IsTerminal()){	    
+	    Node * n = Leelas_favourite.node();
+	    AuxMaybeEnqueueNode(n);
+	  }
+	}
+      }
+      // Queue Leelas favourite node STOP
+      
       // If the edge is already extended, then just recursively call PreExtendTreeAndFastTrackForNNEvaluation_inner() with this node and ply increased by one.
       if(edge.HasNode()){
-	if((int) my_moves.size() > ply+1){
+	if((int) my_moves.size() > ply+2){
 	  if (params_.GetAuxEngineVerbosity() >= 9) {
 	    if(black_to_move){
 	      LOGFILE << "Blacks move " << edge.GetMove(black_to_move).as_string() << " (from white: " << edge.GetMove().as_string() << ") is expanded and has policy " << edge.GetP() << ". Go deeper.";
@@ -1377,79 +1391,96 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
 	  }
 	}
 
-	// GetOrSpawnNode() does work with the lock on since it does not modify the tree.
-	Node* child_node = edge.GetOrSpawnNode(my_node, nullptr);
-
-	nodes_from_helper_added_by_this_PV->push_back(child_node);
-
-	// // Also record the node, and its source, in the global vectors.
-	// search_->search_stats_->pure_stats_mutex_.lock();
-	// search_->search_stats_->nodes_added_by_the_helper.push(child_node);
-	// search_->search_stats_->source_of_added_nodes.push(source);
-	// search_->search_stats_->pure_stats_mutex_.unlock();
-
-	nodes_added++;
-
 	// Create a history variable that will be filled by the four argument version of ExtendNode().
 	lczero::PositionHistory history = search_->played_history_;
 	// copy the part of my_moves that makes up the history of this node
 	std::vector<lczero::Move> moves_to_this_node;
 	std::copy_n(my_moves.begin(), ply+1, std::back_inserter(moves_to_this_node));
-	
-	// unlock the read lock on nodes so that ExtendNode() can get a write lock.
+
+	std::string s;
+	for(long unsigned int i = 0; i < moves_to_this_node.size(); i++){
+	  s = s + moves_to_this_node[i].as_string() + " ";
+	}
+	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Extending node, depth: " << ply+1 << " number of moves: " << moves_to_this_node.size() << " moves to this node: " << s << ".";
+
 	search_->nodes_mutex_.unlock_shared();
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Releasing lock on nodes so that ExtendNode() can get a write lock.";
-	// ExtendNode(child_node, ply+2);	
-	ExtendNode(child_node, ply+2, moves_to_this_node, &history); // This will modify history which will be re-used later here.
-	// Get a read lock again
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Trying to aquire the lock on nodes again.";		
-	search_->nodes_mutex_.lock_shared();
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Aquiring the lock on nodes again.";	
+	Node* child_node;
+	bool is_terminal;
+	{
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "About to aquire a lock on nodes to extend a node";
+	  std::unique_lock lock(search_->nodes_mutex_);
+	  // SharedMutex::Lock lock(search_->nodes_mutex_);
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Lock aquired.";	  
+	  // search_->nodes_mutex_.lock();
+	  child_node = edge.GetOrSpawnNode(my_node, nullptr);
+	  // search_->nodes_mutex_.unlock(); // unlocking here will eventually lead to "edge not found"
+	  // search_->nodes_mutex_.lock_shared();
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Node spawned: " << child_node->DebugString() << " depth: " << ply+1 << " number of moves: " << moves_to_this_node.size() << " moves to this node: " << s;
+	  // // check the edge to this node
+	  // if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Edge leading to the new node: " << child_node->GetOwnEdge()->DebugString();
+	  // Check that parent is well connected
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Parent is well connected via this edge: " << child_node->GetParent()->GetEdgeToNode(child_node)->DebugString();
+	  ExtendNode(child_node, ply+1, moves_to_this_node, &history); // This will modify history which will be re-used later here.
+	  // search_->nodes_mutex_.unlock();		
+	  // // search_->nodes_mutex_.unlock(); // unlocking after ExtendNode will eventually lead disconnects that has no obvious cause.
+	  // search_->nodes_mutex_.lock();
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Node extended.";	
+	  
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Extended node: " << child_node->DebugString() << " depth: " << ply+1 << " number of moves: " << moves_to_this_node.size() << " moves to this node: " << s << " root position: " << GetFen(history.Last());
 
-	// queue for NN evaluation.
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Adding newly extended node: " << child_node->DebugString() << " to the minibatch_";
+	  nodes_from_helper_added_by_this_PV->push_back(child_node);
+	  nodes_added++;
 
-	bool is_terminal=child_node->IsTerminal(); // while we have the read lock.
+	  // queue for NN evaluation.
+	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Adding newly extended node: " << child_node->DebugString() << " to the minibatch_";
 
-	// This part mostly copy/pasted from ProcessPickedTask
-	if (!child_node->IsTerminal()) {
-	  minibatch_.push_back(NodeToProcess::Visit(child_node, static_cast<uint16_t>(ply+1)));
-	  minibatch_[minibatch_.size()-1].nn_queried = true;
-	  // We adjust visit_in_flight in the node manually later when we know the actual number of new nodes added.
-	  // FinalizeScoreUpdate() adds multivisit + n_in_flight, so having a non-zero multivisit would result in doubled N after backup.
-	  minibatch_[minibatch_.size()-1].multivisit = 1;
-	  // For now, do not re-implement the full cache-machinery in GatherMinibatch2() here.
-	  // Accept a small inefficiency by not using the NNCache.
-	  // For NN evaluation three things are needed: hash, input_planes and probabilities_to_cache.
-	  const auto hash = history.HashLast(params_.GetCacheHistoryLength() + 1);
-	  minibatch_[minibatch_.size()-1].hash = hash;
-	  int transform;
-	  minibatch_[minibatch_.size()-1].input_planes = EncodePositionForNN(
+	  is_terminal=child_node->IsTerminal(); // while we have the read lock.
+
+	  // This part mostly copy/pasted from ProcessPickedTask
+	  if (!child_node->IsTerminal()) {
+	    minibatch_.push_back(NodeToProcess::Visit(child_node, static_cast<uint16_t>(ply+1)));
+	    minibatch_[minibatch_.size()-1].nn_queried = true;
+	    // We adjust visit_in_flight in the node manually later when we know the actual number of new nodes added.
+	    // FinalizeScoreUpdate() adds multivisit + n_in_flight, so having a non-zero multivisit would result in doubled N after backup.
+	    minibatch_[minibatch_.size()-1].multivisit = 1;
+	    // For now, do not re-implement the full cache-machinery in GatherMinibatch2() here.
+	    // Accept a small inefficiency by not using the NNCache.
+	    // For NN evaluation three things are needed: hash, input_planes and probabilities_to_cache.
+	    const auto hash = history.HashLast(params_.GetCacheHistoryLength() + 1);
+	    minibatch_[minibatch_.size()-1].hash = hash;
+	    int transform;
+	    minibatch_[minibatch_.size()-1].input_planes = EncodePositionForNN(
 		   search_->network_->GetCapabilities().input_format, history, 8,
 		   params_.GetHistoryFill(), &transform);
-	  minibatch_[minibatch_.size()-1].probability_transform = transform;
-	  std::vector<uint16_t>& moves = minibatch_[minibatch_.size()-1].probabilities_to_cache;
-	  // Legal moves are known, use them.
-	  moves.reserve(child_node->GetNumEdges());
-	  for (const auto& edge : child_node->Edges()) {
-	    moves.emplace_back(edge.GetMove().as_nn_index(transform));
-	  }
-	  // Add the data to computation too, since GatherMinibatch2() will not touch our NodesToProcess
-	  computation_->AddInput(minibatch_[minibatch_.size()-1].hash,
+	    minibatch_[minibatch_.size()-1].probability_transform = transform;
+	    std::vector<uint16_t>& moves = minibatch_[minibatch_.size()-1].probabilities_to_cache;
+	    // Legal moves are known, use them.
+	    moves.reserve(child_node->GetNumEdges());
+	    for (const auto& edge : child_node->Edges()) {
+	      moves.emplace_back(edge.GetMove().as_nn_index(transform));
+	    }
+	    // Add the data to computation too, since GatherMinibatch2() will not touch our NodesToProcess
+	    computation_->AddInput(minibatch_[minibatch_.size()-1].hash,
 				 std::move(minibatch_[minibatch_.size()-1].input_planes),
 				 std::move(minibatch_[minibatch_.size()-1].probabilities_to_cache));
 
-	} else {
-	  minibatch_.push_back(NodeToProcess::Visit(child_node, 1)); // Only one visit, since this is a terminal
-	  minibatch_[minibatch_.size()-1].nn_queried = false;
-	  minibatch_[minibatch_.size()-1].ooo_completed = false;
-	  child_node->IncrementNInFlight(1); // seems necessary.
+	  } else {
+	    minibatch_.push_back(NodeToProcess::Visit(child_node, 1)); // Only one visit, since this is a terminal
+	    minibatch_[minibatch_.size()-1].nn_queried = false;
+	    minibatch_[minibatch_.size()-1].ooo_completed = false;
+	    child_node->IncrementNInFlight(1); // seems necessary.
+	  }
 	}
 
+	// to cover child_node->IncrementNInFlight(1)
+
 	// unlock the readlock.
-	search_->nodes_mutex_.unlock_shared();
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Releasing lock on nodes. finished adding the node.";	
-	if (!is_terminal && (int) my_moves.size() > ply+1){
+	// search_->nodes_mutex_.unlock_shared();
+
+	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Releasing lock on nodes. finished adding the node.";
+	// Debugging: try to not add the last node.
+	// if (!is_terminal && (int) my_moves.size() > ply+1){
+	if (!is_terminal && (int) my_moves.size() > ply+2){
 	  // Go deeper.
 	  PreExtendTreeAndFastTrackForNNEvaluation_inner(child_node, my_moves, ply+1, nodes_added, source, nodes_from_helper_added_by_this_PV);
 	  return; // someone further down has already added visits_in_flight;
@@ -1489,8 +1520,8 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
     // show full my_moves
     std::string s;
     PositionHistory ph = search_->played_history_;
-    for(int i = 0; i < (int) my_moves.size(); i++){
-      LOGFILE << "debugging: " << GetFen(ph.Last());
+    for(int i = 0; i <= ply; i++){
+      LOGFILE << "debugging: ply = " << i << " " << GetFen(ph.Last());
       ph.Append(my_moves[i]);
       s = s + my_moves[i].as_string() + " ";
     }
@@ -1509,8 +1540,8 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
       }
     }
     if(edge_found){
-      // throw Exception("Leelas node has edges, but the recommended move was not found among them!");
       LOGFILE << "Leelas node has edges, but the recommended move was not found among them! Is this a case of https://github.com/hans-ekbrand/lc0/issues/2 where we mistakenly belive a move is castling when it isn't?";
+      throw Exception("Leelas node has edges, but the recommended move was not found among them!");
     } else {
       LOGFILE << "No edges found, repetition?";
     }
@@ -1555,8 +1586,8 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
     int number_of_PVs_added = 0;
     
     while(search_->search_stats_->fast_track_extend_and_evaluate_queue_.size() > 0 &&
-	  search_->search_stats_->Number_of_nodes_added_by_AuxEngine - number_of_added_nodes_at_start < 190 && // Need some margin to 256 for the final iteration.
-	  number_of_PVs_added < 20 // don't drag the speed down.
+	  search_->search_stats_->Number_of_nodes_added_by_AuxEngine - number_of_added_nodes_at_start < 100 && 
+	  number_of_PVs_added < 15 // don't drag the speed down.
 	  ){
       // relase the lock, we only needed it to test if to continue or not
       search_->search_stats_->pure_stats_mutex_.unlock();
@@ -1610,11 +1641,11 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
 	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of search_stats_->fast_track_extend_and_evaluate_queue_ is " << search_->search_stats_->fast_track_extend_and_evaluate_queue_.size();
       }
 
-      // Check if search is stopped.
-      if(search_->stop_.load(std::memory_order_acquire)){
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation() returning early because search is stopped";
-	return(bar);
-      }
+      // // Check if search is stopped.
+      // if(search_->stop_.load(std::memory_order_acquire)){
+      // 	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation() returning early because search is stopped";
+      // 	return(bar);
+      // }
 
       // While we extended nodes, someone could have added more PV:s, update our belief about the current size of the queue.
       search_->search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock(); // lock this queue before reading from it again.
@@ -2630,7 +2661,7 @@ void SearchWorker::FetchSingleNodeResult(NodeToProcess* node_to_process,
 
   // This look did non exist before PreExtend...(), which can write (add visits_in_flight, add children) to these nodes, but those operation should not interfere with the processing done here. I think PickNodesToExtendTask() ignores nodes with 0 visits and positive visit_in_flight, so that should be good. PreExtend...() does read policy, but only for informational purposes.
   // // Nodes mutex for doing node updates.
-  // SharedMutex::Lock lock(search_->nodes_mutex_);
+  SharedMutex::Lock lock(search_->nodes_mutex_);
   
   if (node_to_process->IsCollision()) return;
   
@@ -2693,7 +2724,6 @@ void SearchWorker::FetchSingleNodeResult(NodeToProcess* node_to_process,
 void SearchWorker::DoBackupUpdate() {
   // Nodes mutex for doing node updates.
   SharedMutex::Lock lock(search_->nodes_mutex_);
-
   bool work_done = number_out_of_order_ > 0;
   for (const NodeToProcess& node_to_process : minibatch_) {
     DoBackupUpdateSingleNode(node_to_process);
@@ -2880,16 +2910,16 @@ bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
 void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Search::adjust_policy_stats> foo){
   std::thread::id this_id = std::this_thread::get_id();
   long unsigned int my_queue_size = foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
-  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << this_id << ", In MaybeAdjustPolicyForHelperAddedNodes(), size of queue to process: " << my_queue_size;
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << this_id << ", In MaybeAdjustPolicyForHelperAddedNodes(), size of queue to process: " << my_queue_size << " address of the queue: " << &foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread;
   if(my_queue_size > 0){
-    if (!search_->stop_.load(std::memory_order_acquire)) {
+    // if (!search_->stop_.load(std::memory_order_acquire)) {
       if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybeAdjustPolicy.. trying to aquire a lock on nodes.";      
       search_->nodes_mutex_.lock();
       if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybeAdjustPolicy.. aquired a lock on nodes.";
-    } else {
-      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybeAdjustPolicyForHelperAddedNodes() exiting early since search has stopped";
-      return;
-    }
+    // } else {
+    //   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybeAdjustPolicyForHelperAddedNodes() exiting early since search has stopped";
+    //   return;
+    // }
     while(foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.size() > 0){    
       std::vector<Node*> vector_of_nodes_from_helper_added_by_this_thread = foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.front();
       foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.pop();
@@ -2927,7 +2957,7 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	
 	std::string strategy;
 	float c = 0.6f;
-	float min_c = 0.2f;
+	float min_c = 0.0f;
 	float minimum_policy = min_c;
 	strategy = "e";
 
@@ -2961,8 +2991,20 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	  if(strategy == "e") minimum_policy = std::min(0.90, minimum_policy * 1.1);
 
 	} else {
-	  // Not promising, just explain why.
-	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n->GetQ(0.0f) << ") " << factor_for_us * n->GetQ(0.0f) << " is smaller than " << factor_for_parent * vector_of_nodes_from_helper_added_by_this_thread[0]->GetParent()->GetQ(0.0f) << " which means this is NOT promising. P: " << n->GetOwnEdge()->GetP() << " N: " << n->GetN() << " depth: " << depth + j;
+	  // Not promising
+	  minimum_policy = 0.0f;
+	  // if a move (e.g. leelas favourite move) has the highest policy, reduce its policy to the policy of the highest sibling.
+	  float highest_p_siblings = 0;
+	  // loop through the policies of the siblings.
+	  for (auto& edge : n->GetParent()->Edges()) {
+	    if(edge.edge() != n->GetOwnEdge() && edge.GetP() > highest_p_siblings) highest_p_siblings = edge.GetP();
+	  }
+	  if(n->GetOwnEdge()->GetP() >= highest_p_siblings){
+	    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n->GetQ(0.0f) << ") " << factor_for_us * n->GetQ(0.0f) << " is smaller than " << factor_for_parent * vector_of_nodes_from_helper_added_by_this_thread[0]->GetParent()->GetQ(0.0f) << " which means this is NOT promising. P: " << n->GetOwnEdge()->GetP() << " N: " << n->GetN() << " depth: " << depth + j << " This node has highest policy even though it is not promising, adjusting policy down to that of best sibling: " << highest_p_siblings;
+	    n->GetOwnEdge()->SetP(highest_p_siblings);
+	  } else {
+	    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n->GetQ(0.0f) << ") " << factor_for_us * n->GetQ(0.0f) << " is smaller than " << factor_for_parent * vector_of_nodes_from_helper_added_by_this_thread[0]->GetParent()->GetQ(0.0f) << " which means this is NOT promising. P: " << n->GetOwnEdge()->GetP() << " N: " << n->GetN() << " depth: " << depth + j;
+	  }	    
 	}
 
 	if(strategy == "c"){
