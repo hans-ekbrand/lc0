@@ -1309,9 +1309,9 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
   // Unless this is the starting position, check what brought us here (for informational purposes)
   if(params_.GetAuxEngineVerbosity() >= 9 && search_->played_history_.GetLength() > 1){
     if(black_to_move){
-      LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner called with node" << my_node->DebugString() << " white to edge/move _to_ this node: " << my_node->GetOwnEdge()->GetMove(black_to_move).as_string() << " (debugging info for the edge: " << my_node->GetOwnEdge()->DebugString() << ") and this move from the a/b-helper: " << my_moves[ply].as_string() << "(seen from whites perspective) is really made by black, ply=" << ply;
+      LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner called with node" << my_node->DebugString() << " white move _to_ this node: " << my_node->GetOwnEdge()->GetMove(!black_to_move).as_string() << " and the helper recommends this move from this node: " << my_moves[ply].as_string() << "(the move is mirrored and really made by black), ply=" << ply;
     } else {
-      LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner called with node" << my_node->DebugString() << " black to edge/move _to_ this node: " << my_node->GetOwnEdge()->GetMove(black_to_move).as_string() << " and this move from the a/b-helper: " << my_moves[ply].as_string() << " is made by white, ply=" << ply;
+      LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner called with node" << my_node->DebugString() << " black move _to_ this node: " << my_node->GetOwnEdge()->GetMove(!black_to_move).as_string() << " and the helpe recommends this move by white from this node: " << my_moves[ply].as_string() << ", ply=" << ply;
     }
   }
 

@@ -504,8 +504,6 @@ void Search::AuxEngineWorker() {
   std::string s = "position fen " + GetFen(my_position); // for informational purposes only.
   std::string token;
 
-  // To get the moves in UCI format, we have to construct a board, starting from root and then apply the moves.
-  // Traverse up to root, and store the moves in a vector.
   // When we internally use the moves to extend nodes in the search tree, always use move as seen from the white side.
   // Apply the moves in reversed order to get the proper board state from which we can then make moves in legacy format.
   // std::vector<lczero::Move> my_moves;
@@ -522,7 +520,7 @@ void Search::AuxEngineWorker() {
   int pv_length = 1;
   int depth_reached = 0;
   int nodes_to_support = 0;
-  int max_pv_length = 99; // Dirty work around for too many levels of recursion.
+  int max_pv_length = 99; // Dirty work around for too many levels of recursion. Probably not doing anything at all.
 
   while(iss >> pv >> std::ws) {
     if (pv == "info"){
@@ -535,7 +533,7 @@ void Search::AuxEngineWorker() {
     if (pv == "depth") {
       // Figure out which depth was reached (can be zero).
       iss >> depth_reached >> std::ws;
-      // // Safe time by ignoring PVs with low depth.
+      // // Save time by ignoring PVs with low depth.
       // if(require_some_depth && depth_reached < 15) return;
     }
     if (pv == "nodes") {
@@ -553,28 +551,23 @@ void Search::AuxEngineWorker() {
 	    pv_length < depth_reached &&
 	    pv_length < max_pv_length) {
 	Move m;
-	if (!Move::ParseMove(&m, pv, !flip)) {	
+	if (!Move::ParseMove(&m, pv, !flip)) {		
 	  if (params_.GetAuxEngineVerbosity() >= 1) LOGFILE << "Thread: " << thread << " Ignoring bad pv move: " << pv;
 	  break;
 	  // why not return instead of break?
 	}
+	
+	// m is always from the white side, pv is not. No need to mirror the board then? Actually, yes.
+
 	// convert to Modern encoding, update the board and the position
-	// For the conversion never flip the board. Only flip the board when you need to apply the move!
+
 	Move m_in_modern_encoding = my_board.GetModernMove(m);
-
-	if (my_board.flipped()) m_in_modern_encoding.Mirror();
-	// Should the move applied be modern or legacy, or does it not matter?
-	m_in_modern_encoding = my_board.GetModernMove(m_in_modern_encoding);
-	// my_board.ApplyMove(m_in_modern_encoding); // Todo verify the correctness here, e.g. by printing a FEN.
-	my_board.ApplyMove(m); // Todo verify the correctness here, e.g. by printing a FEN.	
-	my_position = Position(my_position, m_in_modern_encoding);
-
-	if (my_board.flipped()) m_in_modern_encoding.Mirror();
-	my_board.Mirror();
-
-	// my_moves.push_back(m); // Add the PV to the queue
-	my_moves_from_the_white_side.push_back(m_in_modern_encoding); // Add the PV to the queue	
+	my_moves_from_the_white_side.push_back(m_in_modern_encoding); // Add the PV to the queue 
 	pv_moves.push_back(m_in_modern_encoding.as_packed_int());
+	my_position = Position(my_position, m_in_modern_encoding);	
+	my_board.ApplyMove(m_in_modern_encoding);
+	my_board.Mirror();	
+
 	flip = !flip;
 	pv_length++;
       }
@@ -659,17 +652,17 @@ void Search::DoAuxEngine(Node* n, int index){
   int depth = 0;
   if(n != root_node_){
     if(stop_.load(std::memory_order_acquire)) {
-      if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Thread: " << index << "DoAuxEngine caught a stop signal before starting to calculate depth.";
+      if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Thread: " << index << " DoAuxEngine caught a stop signal before starting to calculate depth.";
       return;
     }
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "DoAuxEngine() trying to aquire a lock on nodes_";    
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " DoAuxEngine() trying to aquire a shared lock on nodes_";    
     nodes_mutex_.lock_shared();
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "DoAuxEngine() aquired a lock on nodes_";
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " DoAuxEngine() aquired a lock on nodes_";
     for (Node* n2 = n; n2 != root_node_; n2 = n2->GetParent()) {
       depth++;
     }
     nodes_mutex_.unlock_shared();
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "DoAuxEngine() released a lock on nodes_";    
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " DoAuxEngine() released a lock on nodes_";    
   }
 
   search_stats_->auxengine_mutex_.lock();
@@ -757,7 +750,7 @@ void Search::DoAuxEngine(Node* n, int index){
     my_board.Mirror();
   }
 
-  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " add pv=" << s << " from root position: " << GetFen(played_history_.Last());
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " add pv=" << s << " from root position: " << GetFen(played_history_.Last()); // not given to the helper engine, so modern encoding is fine here.
   s = "position fen " + GetFen(my_position);
   
   // 1. Only start the engines if we can aquire the auxengine_stopped_mutex
@@ -766,7 +759,7 @@ void Search::DoAuxEngine(Node* n, int index){
   search_stats_->auxengine_stopped_mutex_.lock();  
   // Before starting, test if stop_ is set
   if (stop_.load(std::memory_order_acquire)) {
-    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "DoAuxEngine caught a stop signal 1.";
+    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Thread: " << index << " DoAuxEngine caught a stop signal before querying the helper.";
     search_stats_->auxengine_stopped_mutex_.unlock();
     return;
   }
@@ -776,15 +769,15 @@ void Search::DoAuxEngine(Node* n, int index){
   if(index == 0 &&
      !params_.GetAuxEngineOptionsOnRoot().empty()){
     infinite_exploration = true;
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "Starting infinite query from root node for thread 0 using the opstream at: " << &search_stats_->vector_of_opstreams[index];
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " Starting infinite query from root node for thread 0 using the opstream at: " << &search_stats_->vector_of_opstreams[index];
     *search_stats_->vector_of_opstreams[index] << "go infinite " << std::endl;
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "Started infinite query from root node for thread 0 using the opstream at: " << &search_stats_->vector_of_opstreams[index];    
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " Started infinite query from root node for thread 0 using the opstream at: " << &search_stats_->vector_of_opstreams[index];    
   } else {
-    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << "Starting time limited query for thread " << index << " using the opstream at: " << &search_stats_->vector_of_opstreams[index];    
+    if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " Starting time limited query for thread " << index << " using the opstream at: " << &search_stats_->vector_of_opstreams[index];    
     *search_stats_->vector_of_opstreams[index] << "go movetime " << AuxEngineTime << std::endl;
   }
   if(search_stats_->auxengine_stopped_[index]){
-    if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "Thread: " << index << "Setting auxengine_stopped_ to false.";
+    if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "Thread: " << index << " Setting auxengine_stopped_ to false.";
     search_stats_->auxengine_stopped_[index] = false;    
   }
   search_stats_->auxengine_stopped_mutex_.unlock();
