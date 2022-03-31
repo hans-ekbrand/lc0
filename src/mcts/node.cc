@@ -369,41 +369,62 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
 }
 
 void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisit){
+  // This is a bit costly, so only backup every 10 visits when we are in minimax mode.
+  if(GetN() >= 30 && GetN() % 1 != 0){
+    // Increment N.
+    n_ += multivisit;
+    // Decrement virtual loss.
+    n_in_flight_ -= multivisit;
+    return;
+  }
   if(GetN() < 30){
     wl_ += multivisit * (v - wl_) / (n_ + multivisit);
     d_ += multivisit * (d - d_) / (n_ + multivisit);
     m_ += multivisit * (m - m_) / (n_ + multivisit);
   } else {
     // Minimax
+    bool node_found = false;
     float best_wl;
     float best_d;
-    if(depth == 0 || depth % 2 == 0){
+    if(depth % 2 == 0){
       // maximizing the Q of the children
+      // LOGFILE << "At depth: " << depth << " looking for highest Q child to node: " << DebugString();
       best_wl = -1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode()) {
+	if (child.HasNode() && child.node()->GetN() > 0) {
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl > best_wl){
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
+	    node_found = true;
 	  }
 	}
       }
+      // LOGFILE << "Best child found had Q: " << -best_wl << " backpropagating " << best_wl << " for parent node.";
     } else {
       // minimizing
+      // LOGFILE << "At depth: " << depth << " looking for lowest Q child to node: " << DebugString();      
       best_wl = 1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode()) {
+	if (child.HasNode() && child.node()->GetN() > 0) {
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl < best_wl){
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
+	    node_found = true;	    
 	  }
 	}
       }
+      // LOGFILE << "Best child found had Q: " << -best_wl << " backpropagating " << best_wl << " for parent node.";      
     }
-    wl_ = best_wl;
-    d_ = best_d;
+    if(node_found){
+      wl_ = best_wl;
+      d_ = best_d;
+    } else {
+      // No child had enough visits, falling back to normal backpropagation.
+      wl_ += multivisit * (v - wl_) / (n_ + multivisit);
+      d_ += multivisit * (d - d_) / (n_ + multivisit);
+    }
   }
   // Don't really care about MovesLeft, so just do ordinary backup on that.
   m_ += multivisit * (m - m_) / (n_ + multivisit);

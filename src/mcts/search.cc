@@ -665,8 +665,6 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	if(search_stats_->Leelas_preferred_child_node_->GetOwnEdge() != nullptr &&
 	   search_stats_->Leelas_preferred_child_node_->GetOwnEdge()->GetMove().as_string() != search_stats_->winning_move_.as_string()){
 	  if(params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "leelas preferred child differs from the move recommended by the helper.";
-	  // 10 works, but still makes her lose, perhaps she need some wiggeling room to play her lines?
-	  // if(search_stats_->helper_eval_of_root - search_stats_->helper_eval_of_leelas_preferred_child_of_root > 30){
 	  if((search_stats_->helper_eval_of_root > -160 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < -170) || // saving the draw
 	     (search_stats_->helper_eval_of_root > 160 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < 120) // saving the win
 	     ){	
@@ -2821,8 +2819,8 @@ void SearchWorker::DoBackupUpdateSingleNode(
       d = n->GetD();
       m = n->GetM();
     }
-    n->FinalizeScoreUpdate(v, d, m, node_to_process.multivisit);
-    // n->CustomScoreUpdate(depth, v, d, m, node_to_process.multivisit);    
+    // n->FinalizeScoreUpdate(v, d, m, node_to_process.multivisit);
+    n->CustomScoreUpdate(depth, v, d, m, node_to_process.multivisit);    
     if (n_to_fix > 0 && !n->IsTerminal()) {
       n->AdjustForTerminal(v_delta, d_delta, m_delta, n_to_fix);
     }
@@ -3083,6 +3081,7 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Increased policy from " << current_p << " to " << minimum_policy * scaling_factor << " and scaled all other policies down by " << scaling_factor << " since the node was promising";
 	}
       }
+
       // That's the new nodes, but what about the already existing nodes, shouldn't we boost policy for those too? (if they are promising)
       search_->nodes_mutex_.lock_shared();      
       for (Node* n2 = vector_of_nodes_from_helper_added_by_this_thread[0]; depth > 0; n2 = n2->GetParent()) {
@@ -3140,6 +3139,7 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	} // End of children > 1
 	depth--;
       } // End of policy boosting for existing nodes.
+
       search_->nodes_mutex_.unlock_shared();
       if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybeAdjustPolicy.. released a lock on nodes.";    
     }
