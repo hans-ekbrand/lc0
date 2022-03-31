@@ -664,16 +664,14 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
       if(search_stats_->Leelas_preferred_child_node_ != nullptr){
 	if(search_stats_->Leelas_preferred_child_node_->GetOwnEdge() != nullptr &&
 	   search_stats_->Leelas_preferred_child_node_->GetOwnEdge()->GetMove().as_string() != search_stats_->winning_move_.as_string()){
-	  if(params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "leelas preferred child the move recommended by the helper.";
-	  // 10 works, but still makes her lose, perhaps she need some wiggeling room to play her lines?
-	  // if(search_stats_->helper_eval_of_root - search_stats_->helper_eval_of_leelas_preferred_child_of_root > 30){
+	  if(params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "leelas preferred child is not the move recommended by the helper.";
 	  if((search_stats_->helper_eval_of_root > -160 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < -170) || // saving the draw
 	     (search_stats_->helper_eval_of_root > 170 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < 160) // saving the win
 	     ){	
 	    if(search_stats_->number_of_nodes_in_support_for_helper_eval_of_root > 100000){
 	      if(params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Large enough support for root";
 	      if(search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child_of_root > 100000){
-		if(search_stats_->helper_eval_of_root < -160 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < -170){
+		if(search_stats_->helper_eval_of_root > -160 && search_stats_->helper_eval_of_leelas_preferred_child_of_root < -170){
 		  if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Trying to save a draw, helper eval of root: " << search_stats_->helper_eval_of_root << " helper recommended move " << search_stats_->winning_move_.as_string() << " Number of nodes in support for the root node eval: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_root << " helper eval of leelas preferred move: " << search_stats_->helper_eval_of_leelas_preferred_child_of_root << " Leela prefers the move: " << search_stats_->Leelas_preferred_child_node_->GetOwnEdge()->GetMove().as_string() << " nodes in support for the eval of leelas preferred move: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child_of_root;
 		} else {
 		  if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Trying to save a win, helper eval of root: " << search_stats_->helper_eval_of_root << " helper recommended move " << search_stats_->winning_move_.as_string() << " Number of nodes in support for the root node eval: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_root << " helper eval of leelas preferred move: " << search_stats_->helper_eval_of_leelas_preferred_child_of_root << " Leela prefers the move: " << search_stats_->Leelas_preferred_child_node_->GetOwnEdge()->GetMove().as_string() << " nodes in support for the eval of leelas preferred move: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child_of_root;
@@ -2821,8 +2819,8 @@ void SearchWorker::DoBackupUpdateSingleNode(
       d = n->GetD();
       m = n->GetM();
     }
-    n->FinalizeScoreUpdate(v, d, m, node_to_process.multivisit);
-    // n->CustomScoreUpdate(depth, v, d, m, node_to_process.multivisit);    
+    // n->FinalizeScoreUpdate(v, d, m, node_to_process.multivisit);
+    n->CustomScoreUpdate(depth, v, d, m, node_to_process.multivisit);    
     if (n_to_fix > 0 && !n->IsTerminal()) {
       n->AdjustForTerminal(v_delta, d_delta, m_delta, n_to_fix);
     }
@@ -3072,42 +3070,42 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	  search_->nodes_mutex_.unlock();
 	}
       }
-      // That's the new nodes, but what about the already existing nodes, shouldn't we boost policy for those too? (if they are promising)
-      for (Node* n2 = vector_of_nodes_from_helper_added_by_this_thread[0]; depth > 0; n2 = n2->GetParent()) {
+      // // That's the new nodes, but what about the already existing nodes, shouldn't we boost policy for those too? (if they are promising)
+      // for (Node* n2 = vector_of_nodes_from_helper_added_by_this_thread[0]; depth > 0; n2 = n2->GetParent()) {
 
-	// Boost the policy adjustment only if this child is better than its parent.
+      // 	// Boost the policy adjustment only if this child is better than its parent.
 	
-	signed int factor_for_us = (depth % 2 == 1) ? 1 : -1;
-	signed int factor_for_parent = factor_for_us * -1;
+      // 	signed int factor_for_us = (depth % 2 == 1) ? 1 : -1;
+      // 	signed int factor_for_parent = factor_for_us * -1;
 
-	// In this context promising means better than its parent
-	if(factor_for_us * n2->GetQ(0.0f) > factor_for_parent * n2->GetParent()->GetQ(0.0f)){
-	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n2->GetQ(0.0f) << ") " << factor_for_us * n2->GetQ(0.0f) << " is greater than Q for its parent " << factor_for_parent * n2->GetParent()->GetQ(0.0f) << " which means this is promising. P: " << n2->GetOwnEdge()->GetP() << " N: " << n2->GetN() << " depth: " << depth;
-	  // the move is promising
+      // 	// In this context promising means better than its parent
+      // 	if(factor_for_us * n2->GetQ(0.0f) > factor_for_parent * n2->GetParent()->GetQ(0.0f)){
+      // 	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n2->GetQ(0.0f) << ") " << factor_for_us * n2->GetQ(0.0f) << " is greater than Q for its parent " << factor_for_parent * n2->GetParent()->GetQ(0.0f) << " which means this is promising. P: " << n2->GetOwnEdge()->GetP() << " N: " << n2->GetN() << " depth: " << depth;
+      // 	  // the move is promising
 
-	  // make sure that policy is at least as good as the best sibling.
-	  float highest_p = 0.0f;
-	  float minimum_policy_for_existing_nodes;
-	  // loop through the policies of the siblings.
-	  for (auto& edge : n2->GetParent()->Edges()) {
-	    if(edge.GetP() > highest_p) highest_p = edge.GetP();
-	  }
+      // 	  // make sure that policy is at least as good as the best sibling.
+      // 	  float highest_p = 0.0f;
+      // 	  float minimum_policy_for_existing_nodes;
+      // 	  // loop through the policies of the siblings.
+      // 	  for (auto& edge : n2->GetParent()->Edges()) {
+      // 	    if(edge.GetP() > highest_p) highest_p = edge.GetP();
+      // 	  }
 
-	  minimum_policy_for_existing_nodes = highest_p;
-	  // minimum_policy_for_existing_nodes = std::min(0.90, minimum_policy_for_existing_nodes * 1.1); // This would inflate policy when done repeatedly
+      // 	  minimum_policy_for_existing_nodes = highest_p;
+      // 	  // minimum_policy_for_existing_nodes = std::min(0.90, minimum_policy_for_existing_nodes * 1.1); // This would inflate policy when done repeatedly
 
-	  // Modify the policy
-	  if(n2->GetOwnEdge()->GetP() < minimum_policy_for_existing_nodes){	  
-	    search_->nodes_mutex_.lock();	    
-	    n2->GetOwnEdge()->SetP(minimum_policy_for_existing_nodes);
-	    search_->nodes_mutex_.unlock();
-	  }
-	} else {
-	  // Not promising
-	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n2->GetQ(0.0f) << ") " << factor_for_us * n2->GetQ(0.0f) << " is smaller than Q for its parent " << factor_for_parent * n2->GetParent()->GetQ(0.0f) << " which means this is NOT promising. P: " << n2->GetOwnEdge()->GetP() << " N: " << n2->GetN() << " depth: " << depth;
-	}
-	depth--;
-      } // End of policy boosting for existing nodes.
+      // 	  // Modify the policy
+      // 	  if(n2->GetOwnEdge()->GetP() < minimum_policy_for_existing_nodes){	  
+      // 	    search_->nodes_mutex_.lock();	    
+      // 	    n2->GetOwnEdge()->SetP(minimum_policy_for_existing_nodes);
+      // 	    search_->nodes_mutex_.unlock();
+      // 	  }
+      // 	} else {
+      // 	  // Not promising
+      // 	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "(Raw Q=" << n2->GetQ(0.0f) << ") " << factor_for_us * n2->GetQ(0.0f) << " is smaller than Q for its parent " << factor_for_parent * n2->GetParent()->GetQ(0.0f) << " which means this is NOT promising. P: " << n2->GetOwnEdge()->GetP() << " N: " << n2->GetN() << " depth: " << depth;
+      // 	}
+      // 	depth--;
+      // } // End of policy boosting for existing nodes.
       
     }
     // Reset the variable, if it was non-empty.
