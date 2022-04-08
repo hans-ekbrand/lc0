@@ -78,7 +78,7 @@ void SearchWorker::AuxMaybeEnqueueNode(Node* n) {
     //   << search_->search_stats_->persistent_queue_of_nodes.size()
     //   << " The source was " << source;
     n->SetAuxEngineMove(0xfffe); // magic for pending
-    if(search_->search_stats_->persistent_queue_of_nodes.size() < 15000) { // safety net for too low values of AuxEngineThreshold, which would cause this queue to overflow somehow, or just take too much time to check between moves.
+    if(search_->search_stats_->persistent_queue_of_nodes.size() < 30000) { // safety net for too low values of AuxEngineThreshold, which would cause this queue to overflow somehow, or just take too much time to check between moves.
       search_->search_stats_->persistent_queue_of_nodes.push(n);
       // search_->search_stats_->source_of_queued_nodes.push(source);
       search_->auxengine_cv_.notify_one();
