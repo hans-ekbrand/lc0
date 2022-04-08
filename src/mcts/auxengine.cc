@@ -395,7 +395,7 @@ void Search::AuxEngineWorker() {
 	    search_stats_->fast_track_extend_and_evaluate_queue_.push(fast_track_extend_and_evaluate_queue_temp_.front());
 	    fast_track_extend_and_evaluate_queue_temp_.pop();
 	  }
-	  if (params_.GetAuxEngineVerbosity() >= 4)	  
+	  if (params_.GetAuxEngineVerbosity() >= 3)
 	    LOGFILE << "Purged " << my_size - size_kept << " PVs due to the move selected by the opponent. " << size_kept
 		    << " PVs remain in the queue.";
 	}
