@@ -1196,6 +1196,17 @@ void Search::AuxWait() {
   search_stats_->AuxEngineQueueSizeAtMoveSelectionTime = search_stats_->persistent_queue_of_nodes.size();
   search_stats_->Total_number_of_nodes = root_node_->GetN() - search_stats_->Total_number_of_nodes;
   if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << search_stats_->AuxEngineQueueSizeAtMoveSelectionTime << " nodes left in the query queue at move selection time. Threshold used: " << search_stats_->AuxEngineThreshold;
+  // Adjust the Threshold so there is always work to do, aim at a 100 nodes left in the queue at move selection time.
+  if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime < 100){
+    // Get more work, decrease the Threshold
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Queue of nodes to query is a bit low at move selection time, decreasing the threshold from " << search_stats_->AuxEngineThreshold << " to " << search_stats_->AuxEngineThreshold * 0.95 << " to increase the buffer." ;
+    search_stats_->AuxEngineThreshold = search_stats_->AuxEngineThreshold * 0.95;
+  }
+  if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime > 200){
+    // Get less work, increase the Threshold
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Queue of nodes to query is a bit high at move selection time, increasing the threshold from " << search_stats_->AuxEngineThreshold << " to " << search_stats_->AuxEngineThreshold * 1.05 << " to decrease the buffer." ;
+    search_stats_->AuxEngineThreshold = search_stats_->AuxEngineThreshold * 1.05;
+  }
 
   // purge obsolete nodes in the helper queues. Note that depending on the move of the opponent more nodes can become obsolete.
   if(search_stats_->persistent_queue_of_nodes.size() > 0){
