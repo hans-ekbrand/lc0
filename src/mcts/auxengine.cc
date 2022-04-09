@@ -1304,7 +1304,7 @@ void Search::AuxWait() {
       search_stats_->fast_track_extend_and_evaluate_queue_.push(fast_track_extend_and_evaluate_queue_temp_.front());
       fast_track_extend_and_evaluate_queue_temp_.pop();
     }
-    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Number of PV:s in the queue after purging: " << search_stats_->fast_track_extend_and_evaluate_queue_.size();
+    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Number of PV:s in the queue after purging: " << search_stats_->fast_track_extend_and_evaluate_queue_.size();
   }
   search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;

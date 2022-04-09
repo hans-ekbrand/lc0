@@ -667,6 +667,9 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	     (search_stats_->helper_eval_of_root > -165 && search_stats_->helper_eval_of_leelas_preferred_child < -180) || // saving the draw (from a game: -164 root vs -195 leelas move)
 	     (search_stats_->helper_eval_of_root > -170 && search_stats_->helper_eval_of_leelas_preferred_child < -190) || // saving the draw 	     
 	     (search_stats_->helper_eval_of_root > 160 && search_stats_->helper_eval_of_leelas_preferred_child < 130) || // saving the win
+	     // Save the win: Either root or the preferred child of the helper is at least 130 and leelas preferred child is more than 25 centipawns lower
+	     (search_stats_->helper_eval_of_root > 130 && search_stats_->helper_eval_of_root - search_stats_->helper_eval_of_leelas_preferred_child > 25) ||
+	     (search_stats_->helper_eval_of_helpers_preferred_child > 130 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 25) ||
 	     (search_stats_->helper_eval_of_root > 145 && search_stats_->helper_eval_of_leelas_preferred_child < 105) // saving the win
 	     ){	
 	    if(search_stats_->number_of_nodes_in_support_for_helper_eval_of_root > 100000){
