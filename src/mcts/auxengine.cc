@@ -857,14 +857,7 @@ void Search::DoAuxEngine(Node* n, int index){
 	  std::this_thread::sleep_for(std::chrono::milliseconds(30));
 	  return;
 	}
-	divergent_node = maybe_a_node.node(); // What if the best edge is not yet extended?
-	// if(!divergent_node){
-	//   LOGFILE << "No node here yet 2. Nothing to do";
-	//   nodes_mutex_.unlock_shared();	
-	//   std::this_thread::sleep_for(std::chrono::milliseconds(30));
-	//   return;
-	// }
-	// LOGFILE << "Leela: " << Leelas_PV[i].as_string() << " helper: " << helper_PV_local[i].as_string();
+	divergent_node = maybe_a_node.node();
 	if(Leelas_PV[i].as_string() != helper_PV_local[i].as_string()){
 	  if(index == 1){
 	    LOGFILE << "Found the divergence between helper and Leela at depth: " << i << " node: " << divergent_node->DebugString() << " Thread 1 working with the line Leela prefers: " << divergent_node->GetOwnEdge()->GetMove().as_string();
@@ -875,8 +868,15 @@ void Search::DoAuxEngine(Node* n, int index){
 	      if(edge_and_node.GetMove().as_string() == helper_PV_local[i].as_string()){
 		// Maybe best edge is not extended yet?
 		if(!edge_and_node.HasNode()){
-		  LOGFILE << "The helper recommendation does not have a node yet. Nothing to do";
-		  nodes_mutex_.unlock_shared();		
+		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet. Adding this line to fast_track_extend_and_evaluate_queue";
+		  search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
+		  Leelas_PV.push_back(edge_and_node.GetMove());
+		  search_stats_->fast_track_extend_and_evaluate_queue_.push(Leelas_PV);
+		  search_stats_->starting_depth_of_PVs_.push(i);
+		  search_stats_->amount_of_support_for_PVs_.push(0);
+		  search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+		  nodes_mutex_.unlock_shared();
+		  LOGFILE << "Node added to fast_track_extend_and_evaluate_queue, will sleep 30 milliseconds for the node to be added.";
 		  std::this_thread::sleep_for(std::chrono::milliseconds(30));
 		  return;
 		}
