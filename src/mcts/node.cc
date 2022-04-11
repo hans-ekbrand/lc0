@@ -377,7 +377,7 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
   // Decrement virtual loss.
   n_in_flight_ -= multivisit;
 
-  if(GetN() % 3000 == 0){
+  if(GetN() % 100 == 0){
     LOGFILE << "Starting to backup minimax value for this node: " << DebugString();
     bool at_least_one_child_with_enough_vists = false;
     // Also backdrop the minimax
@@ -389,7 +389,7 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
       // maximizing the Q of the children
       best_wl = -1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode() && child.GetN() > 30) {
+	if (child.HasNode() && child.GetN() > 10) {
 	  at_least_one_child_with_enough_vists = true;
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl > best_wl){
@@ -404,7 +404,7 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
       // minimizing
       best_wl = 1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode() && child.GetN() > 30) {
+	if (child.HasNode() && child.GetN() > 10) {
 	  at_least_one_child_with_enough_vists = true;	  
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl < best_wl){
