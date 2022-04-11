@@ -170,6 +170,14 @@ class Node {
   float GetD() const { return d_; }
   float GetM() const { return m_; }
 
+  float GetMiniMaxQ() const {
+    return(minimax_q_);
+  }
+  void SetMiniMaxQ(float q) {
+  assert(-1.0f <= q && q <= 1.0f);
+  minimax_q_ = q;
+  }
+  
   // Returns whether the node is known to be draw/lose/win.
   bool IsTerminal() const { return terminal_type_ != Terminal::NonTerminal; }
   bool IsTbTerminal() const { return terminal_type_ == Terminal::Tablebase; }
@@ -318,6 +326,8 @@ class Node {
   // but not finished). This value is added to n during selection which node
   // to pick in MCTS, and also when selecting the best move.
   uint32_t n_in_flight_ = 0;
+  // like Q but only evaluated for nodes with at least 30 visits.
+  float minimax_q_;
 
   // 2 byte fields.
   // Index of this node is parent's edge list.
@@ -360,7 +370,7 @@ class Node {
 #if defined(__i386__) || (defined(__arm__) && !defined(__aarch64__))
 static_assert(sizeof(Node) == 48, "Unexpected size of Node for 32bit compile");
 #else
-static_assert(sizeof(Node) == 64, "Unexpected size of Node");
+static_assert(sizeof(Node) == 72, "Unexpected size of Node");
 #endif
 
 // Contains Edge and Node pair and set of proxy functions to simplify access

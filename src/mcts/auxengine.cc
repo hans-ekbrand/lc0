@@ -866,17 +866,20 @@ void Search::DoAuxEngine(Node* n, int index){
 	    // We are thread 2, find the node corresponding the helper recommended move
 	    for (auto& edge_and_node : divergent_node->GetParent()->Edges()){
 	      if(edge_and_node.GetMove().as_string() == helper_PV_local[i].as_string()){
-		// Maybe best edge is not extended yet?
 		if(!edge_and_node.HasNode()){
 		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet. Adding this line to fast_track_extend_and_evaluate_queue";
-		  search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
-		  Leelas_PV.push_back(edge_and_node.GetMove());
-		  search_stats_->fast_track_extend_and_evaluate_queue_.push(Leelas_PV);
-		  search_stats_->starting_depth_of_PVs_.push(i);
-		  search_stats_->amount_of_support_for_PVs_.push(0);
-		  search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+		  // replace the last move in Leelas_PV with this move instead.
+		  if(Leelas_PV.size() > 0){
+		    Leelas_PV.pop_back();
+		    search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
+		    Leelas_PV.push_back(edge_and_node.GetMove());
+		    search_stats_->fast_track_extend_and_evaluate_queue_.push(Leelas_PV);
+		    search_stats_->starting_depth_of_PVs_.push(i);
+		    search_stats_->amount_of_support_for_PVs_.push(0);
+		    search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+		    LOGFILE << "Node added to fast_track_extend_and_evaluate_queue, will sleep 30 milliseconds for the node to be added.";
+		  }
 		  nodes_mutex_.unlock_shared();
-		  LOGFILE << "Node added to fast_track_extend_and_evaluate_queue, will sleep 30 milliseconds for the node to be added.";
 		  std::this_thread::sleep_for(std::chrono::milliseconds(30));
 		  return;
 		}

@@ -369,21 +369,29 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
 }
 
 void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisit){
-  if(GetN() < 30){
-    wl_ += multivisit * (v - wl_) / (n_ + multivisit);
-    d_ += multivisit * (d - d_) / (n_ + multivisit);
-    m_ += multivisit * (m - m_) / (n_ + multivisit);
-  } else {
-    // Minimax
+  wl_ += multivisit * (v - wl_) / (n_ + multivisit);
+  d_ += multivisit * (d - d_) / (n_ + multivisit);
+  m_ += multivisit * (m - m_) / (n_ + multivisit);
+  // Increment N.
+  n_ += multivisit;
+  // Decrement virtual loss.
+  n_in_flight_ -= multivisit;
+
+  if(GetN() > 300){
+    bool at_least_one_child_with_enough_vists = false;
+    // Also backdrop the minimax
     float best_wl;
     float best_d;
+    int support_for_q = 0;
     if(depth == 0 || depth % 2 == 0){
       // maximizing the Q of the children
       best_wl = -1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode()) {
+	if (child.HasNode() && child.GetN() > 30) {
+	  at_least_one_child_with_enough_vists = true;
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl > best_wl){
+	    support_for_q = child.node()->GetN();
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
 	  }
@@ -393,25 +401,25 @@ void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisi
       // minimizing
       best_wl = 1.0f;
       for (const auto& child : Edges()) {
-	if (child.HasNode()) {
+	if (child.HasNode() && child.GetN() > 30) {
+	  at_least_one_child_with_enough_vists = true;	  
 	  float this_wl = child.node()->GetWL();
 	  if(this_wl < best_wl){
+	    support_for_q = child.node()->GetN();	    
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
 	  }
 	}
       }
     }
-    wl_ = best_wl;
-    d_ = best_d;
+    if(at_least_one_child_with_enough_vists){
+      LOGFILE << "Backing up a minimax Q=" << best_wl + best_d << " for a node with averaged Q " << GetQ(0.5) << " wl: " << best_wl << " d: " << best_d;
+      float weight_for_minimax = std::min(1.0f, support_for_q / 600.0f);
+      SetMiniMaxQ(best_wl * weight_for_minimax + wl_ * (1 - weight_for_minimax));
+      wl_ = best_wl * weight_for_minimax + wl_ * (1 - weight_for_minimax);
+      d_ = best_d * weight_for_minimax + d_ * (1 - weight_for_minimax);
+    }
   }
-  // Don't really care about MovesLeft, so just do ordinary backup on that.
-  m_ += multivisit * (m - m_) / (n_ + multivisit);
-
-  // Increment N.
-  n_ += multivisit;
-  // Decrement virtual loss.
-  n_in_flight_ -= multivisit;
 }
 
 void Node::AdjustForTerminal(float v, float d, float m, int multivisit) {
