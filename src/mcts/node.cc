@@ -378,6 +378,7 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
   n_in_flight_ -= multivisit;
 
   if(GetN() % 3000 == 0){
+    LOGFILE << "Starting to backup minimax value for this node: " << DebugString();
     bool at_least_one_child_with_enough_vists = false;
     // Also backdrop the minimax
     float best_wl;
