@@ -368,7 +368,7 @@ void Node::FinalizeScoreUpdate(float v, float d, float m, int multivisit) {
   n_in_flight_ -= multivisit;
 }
 
-void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisit){
+  void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisit, PositionHistory played_history_, Node * root_node_){
   wl_ += multivisit * (v - wl_) / (n_ + multivisit);
   d_ += multivisit * (d - d_) / (n_ + multivisit);
   m_ += multivisit * (m - m_) / (n_ + multivisit);
@@ -377,12 +377,13 @@ void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisi
   // Decrement virtual loss.
   n_in_flight_ -= multivisit;
 
-  if(GetN() > 300){
+  if(GetN() % 3000 == 0){
     bool at_least_one_child_with_enough_vists = false;
     // Also backdrop the minimax
     float best_wl;
     float best_d;
     int support_for_q = 0;
+    Node * best_child;
     if(depth == 0 || depth % 2 == 0){
       // maximizing the Q of the children
       best_wl = -1.0f;
@@ -394,6 +395,7 @@ void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisi
 	    support_for_q = child.node()->GetN();
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
+	    best_child = child.node();
 	  }
 	}
       }
@@ -408,16 +410,42 @@ void Node::CustomScoreUpdate(int depth, float v, float d, float m, int multivisi
 	    support_for_q = child.node()->GetN();	    
 	    best_wl = -this_wl;
 	    best_d = child.node()->GetD();
+	    best_child = child.node();	    
 	  }
 	}
       }
     }
     if(at_least_one_child_with_enough_vists){
-      LOGFILE << "Backing up a minimax Q=" << best_wl + best_d << " for a node with averaged Q " << GetQ(0.5) << " wl: " << best_wl << " d: " << best_d;
-      float weight_for_minimax = std::min(1.0f, support_for_q / 600.0f);
-      SetMiniMaxQ(best_wl * weight_for_minimax + wl_ * (1 - weight_for_minimax));
-      wl_ = best_wl * weight_for_minimax + wl_ * (1 - weight_for_minimax);
-      d_ = best_d * weight_for_minimax + d_ * (1 - weight_for_minimax);
+      // Construct the fen
+      std::string s = "";
+      bool flip = played_history_.IsBlackToMove() ^ (depth % 2 == 0);
+      std::vector<lczero::Move> my_moves;
+      if(best_child != root_node_){
+	for (Node* n2 = best_child; n2 != root_node_; n2 = n2->GetParent()) {
+	  my_moves.push_back(n2->GetOwnEdge()->GetMove(flip));
+	  flip = !flip;
+	}
+      }
+  
+      // Reverse the order
+      std::reverse(my_moves.begin(), my_moves.end());
+    
+      ChessBoard my_board = played_history_.Last().GetBoard();
+      Position my_position = played_history_.Last();
+
+      // modern encoding
+      for(auto& move: my_moves) {
+	if (my_board.flipped()) move.Mirror();
+	my_board.ApplyMove(move);
+	my_position = Position(my_position, move);
+	if (my_board.flipped()) move.Mirror();
+	s = s + move.as_string() + " ";  // only for debugging
+	my_board.Mirror();
+      }
+
+      LOGFILE << "Fen of best child: " << GetFen(my_position);
+      LOGFILE << "Backing up a minimax Q=" << best_wl + best_d << " supported by " << support_for_q << " for a node with averaged Q " << GetQ(0.5) << " wl: " << best_wl << " d: " << best_d;
+      SetMiniMaxQ(best_wl + best_d);
     }
   }
 }

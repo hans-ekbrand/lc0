@@ -215,8 +215,7 @@ class Node {
   // * N (+=1)
   // * N-in-flight (-=1)
   void FinalizeScoreUpdate(float v, float d, float m, int multivisit);
-  void CustomScoreUpdate(int depth, float v, float d, float m, int multivisit);
-  // Like FinalizeScoreUpdate, but it updates n existing visits by delta amount.
+  void CustomScoreUpdate(int depth, float v, float d, float m, int multivisit, PositionHistory played_history_, Node * root_node_);
   void AdjustForTerminal(float v, float d, float m, int multivisit);
   // Revert visits to a node which ended in a now reverted terminal.
   void RevertTerminalVisits(float v, float d, float m, int multivisit);
