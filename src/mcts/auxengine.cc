@@ -36,6 +36,7 @@
 #include <iterator>
 #include <sstream>
 #include <thread>
+#include <limits> // to get the max integer value
 
 #include "mcts/node.h"
 #include "neural/cache.h"
@@ -1199,21 +1200,22 @@ void Search::AuxWait() {
   search_stats_->AuxEngineQueueSizeAtMoveSelectionTime = search_stats_->persistent_queue_of_nodes.size();
   search_stats_->Total_number_of_nodes = root_node_->GetN() - search_stats_->Total_number_of_nodes;
   if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << search_stats_->AuxEngineQueueSizeAtMoveSelectionTime << " nodes left in the query queue at move selection time. Threshold used: " << search_stats_->AuxEngineThreshold;
-  // Adjust the Threshold so there is always work to do, aim at a 100 nodes left in the queue at move selection time.
+  // Adjust the Threshold so there is always work to do, aim at a 100 - 200 nodes left in the queue at move selection time.
   if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime < 100){
     // Get more work, decrease the Threshold
     if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Queue of nodes to query is a bit low at move selection time, decreasing the threshold from " << search_stats_->AuxEngineThreshold << " to " << search_stats_->AuxEngineThreshold * 0.90 << " to increase the buffer." ;
-    search_stats_->AuxEngineThreshold = search_stats_->AuxEngineThreshold * 0.90;
+    search_stats_->AuxEngineThreshold = int(floor(search_stats_->AuxEngineThreshold * 0.90));
   }
   if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime > 200 && search_stats_->AuxEngineQueueSizeAtMoveSelectionTime < 15000){
     // Get less work, increase the Threshold
     if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Queue of nodes to query is a bit high at move selection time, increasing the threshold from " << search_stats_->AuxEngineThreshold << " to " << search_stats_->AuxEngineThreshold * 1.10 << " to decrease the buffer." ;
-    search_stats_->AuxEngineThreshold = search_stats_->AuxEngineThreshold * 1.10;
+    search_stats_->AuxEngineThreshold = std::min(int(floor(search_stats_->AuxEngineThreshold * 1.10)), std::numeric_limits<int>::max());
   }
   if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime >= 15000){
     // Get less work, increase the Threshold
     if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Queue of nodes to query is a bit high at move selection time, increasing the threshold from " << search_stats_->AuxEngineThreshold << " to " << search_stats_->AuxEngineThreshold * 1.5 << " to decrease the buffer." ;
-    search_stats_->AuxEngineThreshold = search_stats_->AuxEngineThreshold * 1.5;
+    // Don't overflow
+    search_stats_->AuxEngineThreshold = std::min(int(floor(search_stats_->AuxEngineThreshold * 2)), std::numeric_limits<int>::max());
   }
 
   // purge obsolete nodes in the helper queues. Note that depending on the move of the opponent more nodes can become obsolete.

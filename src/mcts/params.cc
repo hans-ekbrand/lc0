@@ -476,12 +476,12 @@ void SearchParams::Populate(OptionsParser* options) {
   options->HideOption(kTemperatureVisitOffsetId);
   options->Add<StringOption>(kAuxEngineFileId);
   options->Add<StringOption>(kAuxEngineOptionsId) = "Threads=1;Hash=32;Ponder=off";
-  options->Add<StringOption>(kAuxEngineOptionsOnRootId) = "Threads=2;Hash=128;Ponder=off";  
-  options->Add<IntOption>(kAuxEngineThresholdId, 2, 100000000) = 300;
-  options->Add<IntOption>(kAuxEngineInstancesId, 1, 1024) = 2;  
+  options->Add<StringOption>(kAuxEngineOptionsOnRootId) = "Threads=2;Hash=1280;Ponder=off";
+  options->Add<IntOption>(kAuxEngineThresholdId, 30, 100000000) = 3000;
+  options->Add<IntOption>(kAuxEngineInstancesId, 4, 1024) = 4;
   options->Add<IntOption>(kAuxEngineTimeId, 10, 100000000) = 160;
   options->Add<IntOption>(kAuxEngineVerbosityId, 0, 10) = 3;
-  options->Add<IntOption>(kAuxEngineMaxDepthId, 1, 100) = 4;
+  options->Add<IntOption>(kAuxEngineMaxDepthId, 1, 100) = 99;
 }
 
 SearchParams::SearchParams(const OptionsDict& options)
