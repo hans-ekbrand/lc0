@@ -3120,15 +3120,16 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	    // the move is promising
 	    if(strategy == "b") minimum_policy = d;
 	    if(strategy == "e") minimum_policy = std::min(0.90, minimum_policy * 1.2);
+
+	    // Check that it's not terminal and not already queued and not too deep.
+	    if(!n->IsTerminal() && n->GetAuxEngineMove() == 0xffff && depth < 40 && current_amount_of_support > 10000){
+	      AuxMaybeEnqueueNode(n);
+	    }
+	    
 	    
 	  } else {
 	    // Not promising, but since the helper recommended it, it is probably better than its policy, so give it some policy boosting.
 	    if(strategy == "e") minimum_policy = std::min(0.90, minimum_policy * 0.85);	    
-	  }
-
-	  // Check that it's not terminal and not already queued and not too deep.
-	  if(!n->IsTerminal() && n->GetAuxEngineMove() == 0xffff && depth < 30 && current_amount_of_support > 10000){
-	    AuxMaybeEnqueueNode(n);
 	  }
 
 	  search_->nodes_mutex_.unlock_shared();	  
