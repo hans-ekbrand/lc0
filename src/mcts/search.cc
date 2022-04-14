@@ -655,16 +655,16 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	    if(
 	       // save the draw/win
 	       // 120 140
-	       (search_stats_->helper_eval_of_root < -120 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
+	       (search_stats_->helper_eval_of_leelas_preferred_child < -120 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
 	       (search_stats_->helper_eval_of_root > 140 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
 	       // 130 145
-	       (search_stats_->helper_eval_of_root < -130 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 15) ||
+	       (search_stats_->helper_eval_of_leelas_preferred_child < -130 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 15) ||
 	       (search_stats_->helper_eval_of_root > 145 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 15) ||
 	       // 140 152
-	       (search_stats_->helper_eval_of_root < -140 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 12) ||
+	       (search_stats_->helper_eval_of_leelas_preferred_child < -140 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 12) ||
 	       (search_stats_->helper_eval_of_root > 152 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 12) ||
 	       // 150 160
-	       (search_stats_->helper_eval_of_root < -150 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 10) ||
+	       (search_stats_->helper_eval_of_leelas_preferred_child < -150 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 10) ||
 	       (search_stats_->helper_eval_of_root > 160 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 10)
 	       ){
 	      if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Trying to save a draw/win, helper eval of root: " << search_stats_->helper_eval_of_root << " helper recommended move " << search_stats_->winning_move_.as_string() << " (from whites perspective) Number of nodes in support for the root node eval: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_root << " helper eval of leelas preferred move: " << search_stats_->helper_eval_of_leelas_preferred_child << " Leela prefers the move: " << search_stats_->Leelas_PV[0].as_string() << " nodes in support for the eval of leelas preferred move: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child;
