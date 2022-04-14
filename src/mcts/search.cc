@@ -3122,7 +3122,7 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	    if(strategy == "e") minimum_policy = std::min(0.90, minimum_policy * 1.2);
 
 	    // Check that it's not terminal and not already queued and not too deep.
-	    if(!n->IsTerminal() && n->GetAuxEngineMove() == 0xffff && depth < 40 && current_amount_of_support > 10000){
+	    if(!n->IsTerminal() && n->GetAuxEngineMove() == 0xffff && depth < 35 && current_amount_of_support > 10000){
 	      AuxMaybeEnqueueNode(n);
 	    }
 	    
