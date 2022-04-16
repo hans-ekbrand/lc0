@@ -2214,9 +2214,9 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.lock_shared();
 	if(search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_.size() > 0){
 	  local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_ = search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_;
-	  search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock_shared();
 	  force_visits = true;
 	}
+	search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock_shared();
       }
 
       // Create visits_to_perform new back entry for this level.
