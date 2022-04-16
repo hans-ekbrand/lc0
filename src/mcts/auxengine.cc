@@ -799,12 +799,6 @@ void Search::AuxEngineWorker() {
 }
 
 void Search::DoAuxEngine(Node* n, int index){
-  // before trying to take a lock on nodes_mutex_, always check if search has stopped, in which case we return early
-  // if(stop_.load(std::memory_order_acquire)) {
-  //   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "DoAuxEngine, thread " << index << " caught a stop signal beforing doing anything.";
-  //   return;
-  // }
-
   // Calculate depth.
   int depth = 0;
   bool divergence_found = false;
@@ -813,6 +807,7 @@ void Search::DoAuxEngine(Node* n, int index){
   // If there is a helper PV
   // 1. then put the node back into the queue,
   // 2. find the divergence between Leela and helper. Record the depth of this divergence so that others can tell if a change in either PV requires me to change node to explore. If the change is deeper, no need to interrupt.
+  // 2.5 record the path from root to the helpers preferred node (the edges) in the global vector vector_of_edges_from_root_to_Helpers_preferred_child_node_
   // 3. explore the node Leela prefers at the divergence infinitely
   // 4. someone else will stop the helper if Leela or helper change their mind.
   // 5. make sure the eval is reported so it can be used to veto leelas move.
@@ -886,6 +881,13 @@ void Search::DoAuxEngine(Node* n, int index){
 		}
 		divergent_node = edge_and_node.node();
 		LOGFILE << "Thread 2 found special work with node: " << divergent_node->DebugString() << " which corresponds to the helper recommendation: " << helper_PV_local[i].as_string();
+		// Record the path to this node
+		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_ = {};
+		for(n = divergent_node; n != root_node_; n = n->GetParent()){
+		  search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_.push_back(n); // use back() to read from it, since it is in reverse order.
+		}
+		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
 		divergence_found = true;
 		break;
 	      }

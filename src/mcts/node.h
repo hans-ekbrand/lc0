@@ -267,6 +267,12 @@ class Node {
   // Index in parent edges - useful for correlated ordering.
   uint16_t Index() const { return index_; }
 
+  // To manipulate Q in order to avoid premature draw adjudication when leela is too pessimistic about the move the helper says is winning. Only used when search is stopped.
+  void SetQ(float q){
+    wl_ = q;
+    d_ = 1-q;
+  }
+
   ~Node() {
     if (solid_children_ && child_) {
       // As a hack, solid_children is actually storing an array in here, release

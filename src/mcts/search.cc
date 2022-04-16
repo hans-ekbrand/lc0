@@ -265,15 +265,28 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   const auto default_wl = -root_node_->GetWL();
   const auto default_d = root_node_->GetD();
   bool need_to_restart_thread_one = false;
+  bool premature_draw_avoidance_check_done = false;
 
   for (const auto& edge : edges) {
     ++multipv;
     uci_infos.emplace_back(common_info);
     auto& uci_info = uci_infos.back();
-    const auto wl = edge.GetWL(default_wl);
+
+    // search is stopped and search_stats_->stop_a_blunder_ we are trying to save a win, then make sure Leelas eval of that move is not so low as to trigger a draw adjudication.
+    if(stop_.load(std::memory_order_acquire) && search_stats_->stop_a_blunder_ && search_stats_->save_a_win_ && !premature_draw_avoidance_check_done){
+      if(edge.GetMove().as_string() == search_stats_->winning_move_.as_string()){
+	premature_draw_avoidance_check_done = true;
+	if(edge.GetQ(default_q, draw_score) < 0.3){
+	  LOGFILE << "In order to avoid premature draw adjudication, I need to increase Leelas eval of the node the helper thinks is winning.";
+	  edge.node()->SetQ(0.3);
+	}
+      }
+    }
+    
+    const auto wl = edge.GetWL(default_wl);    
     const auto floatD = edge.GetD(default_d);
     const auto q = edge.GetQ(default_q, draw_score);
-    // LOGFILE << "multipv: " << multipv << " q: " << q << " n: " << edge.GetN();
+    
     if (edge.IsTerminal() && wl != 0.0f) {
       uci_info.mate = std::copysign(
           std::round(edge.GetM(0.0f)) / 2 + (edge.IsTbTerminal() ? 101 : 1),
@@ -669,6 +682,11 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	       ){
 	      if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Trying to save a draw/win, helper eval of root: " << search_stats_->helper_eval_of_root << " helper recommended move " << search_stats_->winning_move_.as_string() << " (from whites perspective) Number of nodes in support for the root node eval: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_root << " helper eval of leelas preferred move: " << search_stats_->helper_eval_of_leelas_preferred_child << " Leela prefers the move: " << search_stats_->Leelas_PV[0].as_string() << " nodes in support for the eval of leelas preferred move: " << search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child;
 	      search_stats_->stop_a_blunder_ = true;
+	      if(search_stats_->helper_eval_of_root > 140){
+		search_stats_->save_a_win_ = true;
+	      } else {
+		search_stats_->save_a_win_ = false;
+	      }
 	    }
 	  }
 	} else {
@@ -1191,14 +1209,7 @@ void Search::Stop() {
   Mutex::Lock lock(counters_mutex_);
   ok_to_respond_bestmove_ = true;
   FireStopInternal();
-  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Stopping search due to `stop` uci command.";
-  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "from Stop() About to enter AuxWait()";
-  AuxWait();  // This can take some time during which we are not ready to respond readyok, so for now increase timemargin.
-  // When would AuxWait() actually take long time? if MaybetriggerStop() somehow fails to detect that a AuxEngingeWorker-thread actually should be stopped,
-  // or if sending `stop` to the helper engine somehow does not actually stop it, but both of these should never happen, so I don't think AuxWait() takes
-  // substantial time any more. The AuxEngineWorker threads should all be idle at this point (since MaybeTriggerStop() now waits for them before exiting).
-  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "from Stop() AuxWait() returned";  
-
+  AuxWait(); 
 }
 
 void Search::Abort() {
@@ -2148,6 +2159,10 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 
   int max_limit = std::numeric_limits<int>::max();
 
+  bool force_visits = false;
+  int max_force_visits = params_.GetMiniBatchSize() * 0.2;
+  std::vector<Node*> local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_;  
+
   current_path.push_back(-1);
   while (current_path.size() > 0) {
     // First prepare visits_to_perform.
@@ -2189,10 +2204,19 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
         current_path.pop_back();
         continue;
       }
+      
       if (is_root_node) {
         // Root node is again special - needs its n in flight updated separately
         // as its not handled on the path to it, since there isn't one.
         node->IncrementNInFlight(cur_limit);
+
+	// While we are at the root node, determine if we need to force visits or not.
+	search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.lock_shared();
+	if(search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_.size() > 0){
+	  local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_ = search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_;
+	  search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock_shared();
+	  force_visits = true;
+	}
       }
 
       // Create visits_to_perform new back entry for this level.
@@ -2260,13 +2284,13 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
             cache_filled_idx++;
           }
           if (is_root_node) {
-	    // If params_.GetQBasedMoveSelection() is false and 
+	    // If both force_visits and params_.GetQBasedMoveSelection() are false and 
             // there's no chance to catch up to the current best node with
             // remaining playouts, don't consider it.
             // best_move_node_ could have changed since best_node_n was
             // retrieved. To ensure we have at least one node to expand, always
             // include current best node.
-            if (!params_.GetQBasedMoveSelection() && cur_iters[idx] != search_->current_best_edge_ &&
+            if (!force_visits && !params_.GetQBasedMoveSelection() && cur_iters[idx] != search_->current_best_edge_ &&
                 latest_time_manager_hints_.GetEstimatedRemainingPlayouts() <
                     best_node_n - cur_iters[idx].GetN()) {
               continue;
@@ -2304,28 +2328,33 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  }
 	}
 
-	// 
-
-	// if(params_.GetQBasedMoveSelection() &&
-	//    this_edge_has_higher_expected_q_than_the_most_visited_child > -1){
-	//   if(this_edge_has_higher_expected_q_than_the_most_visited_child != best_idx){
-	//     best_idx = this_edge_has_higher_expected_q_than_the_most_visited_child;
-	//     best_edge = cur_iters[best_idx];
-	//   }
-	// }
+	// force visits
+	if(force_visits && local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.size() > 0){
+	  Node * helper_recommends_this_node = local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.back();
+	  local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.pop_back();
+	  if(best_idx != helper_recommends_this_node->Index()){
+	    best_edge = cur_iters[helper_recommends_this_node->Index()];
+	    // change "best" to second best, so that the "best" isn't starved.
+	    second_best_edge = cur_iters[best_idx];
+	  }
+	}
 
         int new_visits = 0;
 	// easiest is to give the promising node all visits
         if (second_best_edge && (this_edge_has_higher_expected_q_than_the_most_visited_child == -1)) {
           int estimated_visits_to_change_best = std::numeric_limits<int>::max();
-          if (best_without_u < second_best) {
-            const auto n1 = current_nstarted[best_idx] + 1;
-            estimated_visits_to_change_best = static_cast<int>(
-                std::max(1.0f, std::min(current_pol[best_idx] * puct_mult /
-                                                (second_best - best_without_u) -
-                                            n1 + 1,
-                                        1e9f)));
-          }
+	  if(force_visits){
+	    estimated_visits_to_change_best = max_force_visits;
+	  } else {
+	    if (best_without_u < second_best) {
+	      const auto n1 = current_nstarted[best_idx] + 1;
+	      estimated_visits_to_change_best = static_cast<int>(
+			 std::max(1.0f, std::min(current_pol[best_idx] * puct_mult /
+						 (second_best - best_without_u) -
+						 n1 + 1,
+						 1e9f)));
+	    }
+	  }
           second_best_edge.Reset();
           max_limit = std::min(max_limit, estimated_visits_to_change_best);
           new_visits = std::min(cur_limit, estimated_visits_to_change_best);

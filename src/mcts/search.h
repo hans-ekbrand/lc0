@@ -70,6 +70,7 @@ class Search {
     std::queue<int> starting_depth_of_PVs_; // needed to calculate the estimated number of nodes in support for a recommended move.
     bool winning_ = false;
     bool stop_a_blunder_ = false;
+    bool save_a_win_ = false;
     bool winning_threads_adjusted = false;
     int non_winning_root_threads_; // only parse once, store the result in this variable so that we can reset without parsing again.
     Move winning_move_;
@@ -81,7 +82,8 @@ class Search {
     float helper_eval_of_helpers_preferred_child;    
     int number_of_nodes_in_support_for_helper_eval_of_root = 0;
     int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
-    Node* Leelas_preferred_child_node_; 
+    Node* Leelas_preferred_child_node_;
+    std::vector<Node*> vector_of_nodes_from_root_to_Helpers_preferred_child_node_;
 
     std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams;
     std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams;
@@ -113,6 +115,7 @@ class Search {
     // std::mutex pure_stats_mutex_;
     mutable std::shared_mutex pure_stats_mutex_;
     // SharedMutex pure_stats_mutex_;
+    mutable std::shared_mutex vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_;
     std::mutex auxengine_mutex_;
     std::mutex auxengine_listen_mutex_;
     std::mutex auxengine_stopped_mutex_;
