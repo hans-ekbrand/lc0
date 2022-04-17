@@ -807,7 +807,7 @@ void Search::DoAuxEngine(Node* n, int index){
   // If there is a helper PV
   // 1. then put the node back into the queue,
   // 2. find the divergence between Leela and helper. Record the depth of this divergence so that others can tell if a change in either PV requires me to change node to explore. If the change is deeper, no need to interrupt.
-  // 2.5 record the path from root to the helpers preferred node (the edges) in the global vector vector_of_edges_from_root_to_Helpers_preferred_child_node_
+  // 2.5 record the path from root to the helpers preferred node (the edges) in the global vector vector_of_moves_from_root_to_Helpers_preferred_child_node_
   // 3. explore the node Leela prefers at the divergence infinitely
   // 4. someone else will stop the helper if Leela or helper change their mind.
   // 5. make sure the eval is reported so it can be used to veto leelas move.
@@ -830,14 +830,12 @@ void Search::DoAuxEngine(Node* n, int index){
     search_stats_->best_move_candidates_mutex.unlock();    
 
     // step 1
-    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Thread " << index << " in DoAuxEngine() about to try to aquire a lock on auxengine_";
     search_stats_->auxengine_mutex_.lock();  
     search_stats_->persistent_queue_of_nodes.push(n);
     auxengine_cv_.notify_one();
     search_stats_->auxengine_mutex_.unlock();
 
     // step 2, find the divergence.
-    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Thread " << index << " in DoAuxEngine() about to find the divergence.";
     // First node which does not have an edge that can be found in helper_PV_local is the node to explore
     std::vector<Move> Leelas_PV;
     Node * divergent_node = root_node_;
@@ -856,7 +854,7 @@ void Search::DoAuxEngine(Node* n, int index){
 	divergent_node = maybe_a_node.node();
 	if(Leelas_PV[i].as_string() != helper_PV_local[i].as_string()){
 	  if(index == 1){
-	    LOGFILE << "Found the divergence between helper and Leela at depth: " << i << " node: " << divergent_node->DebugString() << " Thread 1 working with the line Leela prefers: " << divergent_node->GetOwnEdge()->GetMove().as_string();
+	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found the divergence between helper and Leela at depth: " << i << " Thread 1 will work with the line Leela prefers: " << divergent_node->GetOwnEdge()->GetMove().as_string();
 	    divergence_found = true;
 	  } else {
 	    // We are thread 2, find the node corresponding the helper recommended move
@@ -880,14 +878,17 @@ void Search::DoAuxEngine(Node* n, int index){
 		  return;
 		}
 		divergent_node = edge_and_node.node();
-		LOGFILE << "Thread 2 found special work with node: " << divergent_node->DebugString() << " which corresponds to the helper recommendation: " << helper_PV_local[i].as_string();
-		// Record the path to this node
-		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_ = {};
+		if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 2 found the node which corresponds to the helper recommendation: " << helper_PV_local[i].as_string();
+		// Record the path to this node, and the node itself
+		search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+		search_stats_->Helpers_preferred_child_node_ = divergent_node;
+		search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
 		for(n = divergent_node; n != root_node_; n = n->GetParent()){
-		  search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_.push_back(n); // use back() to read from it, since it is in reverse order.
+		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.push_back(n->GetOwnEdge()->GetMove());
 		}
-		search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+		// Reverse the order, need to be move to child from root at the beginning.
+		std::reverse(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin(), search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.end());
+		search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
 		divergence_found = true;
 		break;
 	      }
@@ -908,7 +909,7 @@ void Search::DoAuxEngine(Node* n, int index){
       if(index == 1){	
 	search_stats_->best_move_candidates_mutex.lock();
 	search_stats_->Leelas_PV = Leelas_PV;
-	search_stats_->PVs_diverge_at_depth = depth;
+	search_stats_->PVs_diverge_at_depth = depth-1;
 	search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;	  
 	search_stats_->best_move_candidates_mutex.unlock();
       }
@@ -1332,6 +1333,12 @@ void Search::AuxWait() {
     if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Number of PV:s in the queue after purging: " << search_stats_->fast_track_extend_and_evaluate_queue_.size();
   }
   search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+
+  // Reset the force visits vector.
+  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+  
   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;
 }
 

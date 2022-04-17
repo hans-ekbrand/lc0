@@ -162,6 +162,9 @@ class SearchParams {
   int GetAuxEngineInstances() const {
     return options_.Get<int>(kAuxEngineInstancesId);
   }
+  float GetAuxEngineForceVisitsRatio() const {
+    return options_.Get<float>(kAuxEngineForceVisitsRatioId);
+  }
   int GetAuxEngineTime() const {
     return options_.Get<int>(kAuxEngineTimeId);
   }
@@ -239,7 +242,8 @@ class SearchParams {
   static const OptionId kAuxEngineOptionsOnRootId;
   static const OptionId kAuxEngineThresholdId;
   static const OptionId kAuxEngineMaxDepthId;
-  static const OptionId kAuxEngineInstancesId;  
+  static const OptionId kAuxEngineInstancesId;
+  static const OptionId kAuxEngineForceVisitsRatioId;
   static const OptionId kAuxEngineTimeId;
   static const OptionId kAuxEngineVerbosityId;
   static const OptionId kMoveSelectionVisitsScalingPowerId;

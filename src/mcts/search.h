@@ -83,7 +83,8 @@ class Search {
     int number_of_nodes_in_support_for_helper_eval_of_root = 0;
     int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
     Node* Leelas_preferred_child_node_;
-    std::vector<Node*> vector_of_nodes_from_root_to_Helpers_preferred_child_node_;
+    Node* Helpers_preferred_child_node_; // protected by search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
+    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_;
 
     std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams;
     std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams;
@@ -115,7 +116,7 @@ class Search {
     // std::mutex pure_stats_mutex_;
     mutable std::shared_mutex pure_stats_mutex_;
     // SharedMutex pure_stats_mutex_;
-    mutable std::shared_mutex vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_;
+    std::mutex vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_;
     std::mutex auxengine_mutex_;
     std::mutex auxengine_listen_mutex_;
     std::mutex auxengine_stopped_mutex_;
@@ -560,12 +561,13 @@ class SearchWorker {
   // Returns whether a node's bounds were set based on its children.
   bool MaybeSetBounds(Node* p, float m, int* n_to_fix, float* v_delta,
                       float* d_delta, float* m_delta) const;
-  void PickNodesToExtend(int collision_limit);
+  void PickNodesToExtend(int collision_limit, bool override_cpuct);
   void PickNodesToExtendTask(Node* starting_point, int collision_limit,
                              int base_depth,
                              const std::vector<Move>& moves_to_base,
                              std::vector<NodeToProcess>* receiver,
-                             TaskWorkspace* workspace);
+                             TaskWorkspace* workspace,
+			     bool override_cpuct);
   void EnsureNodeTwoFoldCorrectForDepth(Node* node, int depth);
   void ProcessPickedTask(int batch_start, int batch_end,
                          TaskWorkspace* workspace);

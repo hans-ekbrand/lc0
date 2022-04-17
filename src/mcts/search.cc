@@ -345,7 +345,7 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  // Need to stop helper thread 1
 	  if(!notified_already){
 	    need_to_restart_thread_one = true;
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << search_stats_->Leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
+	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << "Current divergence depth=" << search_stats_->PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << search_stats_->Leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
 	    notified_already = true;
 	  }
 	}
@@ -1316,7 +1316,8 @@ void SearchWorker::RunTasks(int tid) {
         case PickTask::kGathering: {
           PickNodesToExtendTask(task->start, task->base_depth,
                                 task->collision_limit, task->moves_to_base,
-                                &(task->results), &(task_workspaces_[tid]));
+                                &(task->results), &(task_workspaces_[tid]),
+				false);
           break;
         }
         case PickTask::kProcessing: {
@@ -1364,15 +1365,18 @@ void SearchWorker::ExecuteOneIteration() {
   if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " PreExtendTreeAndFastTrackForNNEvaluation() finished in ExecuteOneIteration().";
   // 2. Gather minibatch.
   GatherMinibatch2();
+  
   task_count_.store(-1, std::memory_order_release);
   search_->backend_waiting_counter_.fetch_add(1, std::memory_order_relaxed);
-  // if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "GatherMinibatch2() finished in ExecuteOneIteration().";
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "GatherMinibatch2() finished in ExecuteOneIteration().";
   
   // 2b. Collect collisions.
   CollectCollisions();
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "CollectCollisions() finished in ExecuteOneIteration().";  
 
   // 3. Prefetch into cache.
   MaybePrefetchIntoCache();
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "MaybePrefetchIntoCache() finished in ExecuteOneIteration().";    
 
   if (params_.GetMaxConcurrentSearchers() != 0) {
     search_->pending_searchers_.fetch_add(1, std::memory_order_acq_rel);
@@ -1381,7 +1385,7 @@ void SearchWorker::ExecuteOneIteration() {
   // 4. Run NN computation.
   RunNNComputation();
   search_->backend_waiting_counter_.fetch_add(-1, std::memory_order_relaxed);
-  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " RunNNComputation() finished in ExecuteOneIteration().";
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << std::this_thread::get_id() << " RunNNComputation() finished in ExecuteOneIteration().";
   
   // 5. Retrieve NN computations (and terminal values) into nodes.
   FetchMinibatchResults();
@@ -1823,6 +1827,8 @@ void SearchWorker::GatherMinibatch2() {
 
   int thread_count = search_->thread_count_.load(std::memory_order_acquire);
 
+  int iteration_counter = 0;
+
   // Gather nodes to process in the current batch.
   // If we had too many nodes out of order, also interrupt the iteration so
   // that search can exit.
@@ -1847,9 +1853,17 @@ void SearchWorker::GatherMinibatch2() {
 
     int new_start = static_cast<int>(minibatch_.size());
 
-    PickNodesToExtend(
+    if(iteration_counter == 0){
+      // First run is a custom run which may override CPUCT and force visits into a specific line.
+      int max_force_visits = int(floor(params_.GetMiniBatchSize() * 0.2));
+      PickNodesToExtend(max_force_visits, true);
+    } else {
+      // Normal run
+      PickNodesToExtend(
         std::min({collisions_left, params_.GetMiniBatchSize() - minibatch_size,
-                  params_.GetMaxOutOfOrderEvals() - number_out_of_order_}));
+	    params_.GetMaxOutOfOrderEvals() - number_out_of_order_}), false);
+    }
+    iteration_counter++;
 
     // Count the non-collisions.
     int non_collisions = 0;
@@ -1969,7 +1983,7 @@ void SearchWorker::GatherMinibatch2() {
         if (search_->stop_.load(std::memory_order_acquire)) return;
       }
     }
-  }
+  }  
 }
 
 void SearchWorker::ProcessPickedTask(int start_idx, int end_idx,
@@ -2044,7 +2058,7 @@ int SearchWorker::WaitForTasks() {
   }
 }
 
-void SearchWorker::PickNodesToExtend(int collision_limit) {
+void SearchWorker::PickNodesToExtend(int collision_limit, bool override_cpuct) {
   ResetTasks();
   {
     // While nothing is ready yet - wake the task runners so they are ready to
@@ -2058,7 +2072,7 @@ void SearchWorker::PickNodesToExtend(int collision_limit) {
   // actually this thread does.
   SharedMutex::Lock lock(search_->nodes_mutex_);
   PickNodesToExtendTask(search_->root_node_, 0, collision_limit, empty_movelist,
-                        &minibatch_, &main_workspace_);
+                        &minibatch_, &main_workspace_, override_cpuct);
 
   WaitForTasks();
   for (int i = 0; i < static_cast<int>(picking_tasks_.size()); i++) {
@@ -2114,12 +2128,36 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
                                          int collision_limit,
                                          const std::vector<Move>& moves_to_base,
                                          std::vector<NodeToProcess>* receiver,
-                                         TaskWorkspace* workspace) {
+                                         TaskWorkspace* workspace,
+					 bool override_cpuct) {
 
   // TODO: Bring back pre-cached nodes created outside locks in a way that works
   // with tasks.
   // TODO: pre-reserve visits_to_perform for expected depth and likely maximum
   // width. Maybe even do so outside of lock scope.
+
+  if(override_cpuct){
+    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+    if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
+      // LOGFILE << "Forcing " << collision_limit << " visits to the Helpers preferred child node by adding a new task which another thread will deal with.";
+      // We are guaranteed to be first and only thread messing with picking_tasks_ at this point, so no locks or test required
+      // Multiple writers, so need mutex here. // Not anymore but keeping it until it works.
+      // Mutex::Lock lock(picking_tasks_mutex_);
+      // Ensure not to exceed size of reservation.
+      // if (picking_tasks_.size() < MAX_TASKS) {
+      picking_tasks_.emplace_back(
+		  search_->search_stats_->Helpers_preferred_child_node_,
+		  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size(),
+                  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_,
+		  collision_limit);
+      task_count_.fetch_add(1, std::memory_order_acq_rel);
+      task_added_.notify_all();
+      // }
+    }
+    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+    return;
+  }
+  
   auto& vtp_buffer = workspace->vtp_buffer;
   auto& visits_to_perform = workspace->visits_to_perform;
   visits_to_perform.clear();
@@ -2158,10 +2196,6 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
   auto m_evaluator = moves_left_support_ ? MEvaluator(params_) : MEvaluator();
 
   int max_limit = std::numeric_limits<int>::max();
-
-  bool force_visits = false;
-  int max_force_visits = params_.GetMiniBatchSize() * 0.2;
-  std::vector<Node*> local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_;  
 
   current_path.push_back(-1);
   while (current_path.size() > 0) {
@@ -2209,14 +2243,6 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
         // Root node is again special - needs its n in flight updated separately
         // as its not handled on the path to it, since there isn't one.
         node->IncrementNInFlight(cur_limit);
-
-	// While we are at the root node, determine if we need to force visits or not.
-	search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.lock_shared();
-	if(search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_.size() > 0){
-	  local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_ = search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_;
-	  force_visits = true;
-	}
-	search_->search_stats_->vector_of_nodes_from_root_to_Helpers_preferred_child_node_mutex_.unlock_shared();
       }
 
       // Create visits_to_perform new back entry for this level.
@@ -2284,13 +2310,13 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
             cache_filled_idx++;
           }
           if (is_root_node) {
-	    // If both force_visits and params_.GetQBasedMoveSelection() are false and 
+	    // If params_.GetQBasedMoveSelection() is false and 
             // there's no chance to catch up to the current best node with
             // remaining playouts, don't consider it.
             // best_move_node_ could have changed since best_node_n was
             // retrieved. To ensure we have at least one node to expand, always
             // include current best node.
-            if (!force_visits && !params_.GetQBasedMoveSelection() && cur_iters[idx] != search_->current_best_edge_ &&
+            if (!params_.GetQBasedMoveSelection() && cur_iters[idx] != search_->current_best_edge_ &&
                 latest_time_manager_hints_.GetEstimatedRemainingPlayouts() <
                     best_node_n - cur_iters[idx].GetN()) {
               continue;
@@ -2328,32 +2354,17 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  }
 	}
 
-	// force visits
-	if(force_visits && local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.size() > 0){
-	  Node * helper_recommends_this_node = local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.back();
-	  local_copy_of_vector_of_nodes_from_root_to_Helpers_preferred_child_node_.pop_back();
-	  if(best_idx != helper_recommends_this_node->Index()){
-	    best_edge = cur_iters[helper_recommends_this_node->Index()];
-	    // change "best" to second best, so that the "best" isn't starved.
-	    second_best_edge = cur_iters[best_idx];
-	  }
-	}
-
         int new_visits = 0;
 	// easiest is to give the promising node all visits
-        if (second_best_edge && (this_edge_has_higher_expected_q_than_the_most_visited_child == -1)) {
+        if (second_best_edge && this_edge_has_higher_expected_q_than_the_most_visited_child == -1) {
           int estimated_visits_to_change_best = std::numeric_limits<int>::max();
-	  if(force_visits){
-	    estimated_visits_to_change_best = max_force_visits;
-	  } else {
-	    if (best_without_u < second_best) {
-	      const auto n1 = current_nstarted[best_idx] + 1;
-	      estimated_visits_to_change_best = static_cast<int>(
+	  if (best_without_u < second_best) {
+	    const auto n1 = current_nstarted[best_idx] + 1;
+	    estimated_visits_to_change_best = static_cast<int>(
 			 std::max(1.0f, std::min(current_pol[best_idx] * puct_mult /
 						 (second_best - best_without_u) -
 						 n1 + 1,
 						 1e9f)));
-	    }
 	  }
           second_best_edge.Reset();
           max_limit = std::min(max_limit, estimated_visits_to_change_best);
@@ -2388,7 +2399,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
           current_score[best_idx] = current_pol[best_idx] * puct_mult /
                                         (1 + current_nstarted[best_idx]) +
                                     current_util[best_idx];
-        }
+	}
         if ((decremented &&
              (child_node->GetN() == 0 || child_node->IsTerminal()))) {
           // Reduce 1 for the visits_to_perform to ensure the collision created

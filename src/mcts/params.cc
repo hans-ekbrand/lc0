@@ -346,6 +346,11 @@ const OptionId SearchParams::kAuxEngineInstancesId{
     "This many instances of the auxiliary engine will be used. "
     "The first instance will continously explore root while any "
      "remaining instances will be used for in-tree exploration."};
+const OptionId SearchParams::kAuxEngineForceVisitsRatioId{
+    "auxengine-force-visits-ratio", "AuxEngineForceVisitsRatio",
+    "This proportion of the minibatch will be forced to pass the node "
+    "recommended by the helper engine where the PV of Leela and the PV "
+    "of the helper engine diverge."};
 const OptionId SearchParams::kAuxEngineTimeId{
     "auxengine-time", "AuxEngineTime",
     "Time (in milliseconds) for the auxiliary engine to search. "
@@ -479,6 +484,7 @@ void SearchParams::Populate(OptionsParser* options) {
   options->Add<StringOption>(kAuxEngineOptionsOnRootId) = "Threads=2;Hash=1280;Ponder=off";
   options->Add<IntOption>(kAuxEngineThresholdId, 30, 100000000) = 3000;
   options->Add<IntOption>(kAuxEngineInstancesId, 4, 1024) = 4;
+  options->Add<FloatOption>(kAuxEngineForceVisitsRatioId, 0, 1) = 0.2;  
   options->Add<IntOption>(kAuxEngineTimeId, 10, 100000000) = 160;
   options->Add<IntOption>(kAuxEngineVerbosityId, 0, 10) = 3;
   options->Add<IntOption>(kAuxEngineMaxDepthId, 1, 100) = 99;
