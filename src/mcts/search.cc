@@ -345,7 +345,7 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  // Need to stop helper thread 1
 	  if(!notified_already){
 	    need_to_restart_thread_one = true;
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << "Current divergence depth=" << search_stats_->PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << search_stats_->Leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
+	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << search_stats_->PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << search_stats_->Leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
 	    notified_already = true;
 	  }
 	}
@@ -1855,7 +1855,7 @@ void SearchWorker::GatherMinibatch2() {
 
     if(iteration_counter == 0){
       // First run is a custom run which may override CPUCT and force visits into a specific line.
-      int max_force_visits = int(floor(params_.GetMiniBatchSize() * 0.2));
+      int max_force_visits = int(floor(params_.GetMiniBatchSize() * params_.GetAuxEngineForceVisitsRatio()));
       PickNodesToExtend(max_force_visits, true);
     } else {
       // Normal run
@@ -2137,26 +2137,57 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
   // width. Maybe even do so outside of lock scope.
 
   if(override_cpuct){
-    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-    if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
-      // LOGFILE << "Forcing " << collision_limit << " visits to the Helpers preferred child node by adding a new task which another thread will deal with.";
-      // We are guaranteed to be first and only thread messing with picking_tasks_ at this point, so no locks or test required
-      // Multiple writers, so need mutex here. // Not anymore but keeping it until it works.
-      // Mutex::Lock lock(picking_tasks_mutex_);
-      // Ensure not to exceed size of reservation.
-      // if (picking_tasks_.size() < MAX_TASKS) {
-      picking_tasks_.emplace_back(
+    // If the helper thinks its node is better then force visits to it (to show leela why this line is good).
+    // Todo: if the above is true, then also force visits into the PV from the helper from leelas preferred node (to show Leela why that line is bad).
+    // One needs to go into Leelas preferred line and find out where the helper diverges from Leela in that line.
+    // But if the helper actually prefers leelas line, then do nothing
+    float ratio_to_refutation = 0.25;
+    int orig_collision_limit = collision_limit;
+    search_->search_stats_->best_move_candidates_mutex.lock(); // for reading search_stats_->winning_ and the other
+    if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0 &&
+       search_->search_stats_->helper_eval_of_leelas_preferred_child < search_->search_stats_->helper_eval_of_helpers_preferred_child
+       ){
+      search_->search_stats_->best_move_candidates_mutex.unlock();
+      search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+      if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
+	if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0){
+	  // The visits is to be shared on two paths
+	  collision_limit = int(floor(collision_limit * (1 - ratio_to_refutation)));
+	}
+	if(!search_->search_stats_->helper_thinks_it_is_better){
+	  search_->search_stats_->helper_thinks_it_is_better = true;
+	  if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << search_->search_stats_->helper_eval_of_helpers_preferred_child - search_->search_stats_->helper_eval_of_leelas_preferred_child << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+	  if(params_.GetAuxEngineVerbosity() >= 4 && search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0) LOGFILE << orig_collision_limit - collision_limit << " visits will be forced via the node where the helper diverges in Leelas PV, which happens at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
+	}
+	Mutex::Lock lock(picking_tasks_mutex_);
+	picking_tasks_.emplace_back(
 		  search_->search_stats_->Helpers_preferred_child_node_,
 		  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size(),
                   search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_,
 		  collision_limit);
-      task_count_.fetch_add(1, std::memory_order_acq_rel);
-      task_added_.notify_all();
-      // }
+	task_count_.fetch_add(1, std::memory_order_acq_rel);
+	task_added_.notify_all();	
+	// And now do the same for the Helpers recommended node in Leelas PV, if it exists.
+	if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0){
+	  picking_tasks_.emplace_back(
+		  search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_,
+		  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size(),
+                  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_,
+		  orig_collision_limit - collision_limit);
+	  task_count_.fetch_add(1, std::memory_order_acq_rel);
+	  task_added_.notify_all();	  
+	}
+      }
+      search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+      return;
+    } else {
+      if(search_->search_stats_->helper_thinks_it_is_better){
+	search_->search_stats_->helper_thinks_it_is_better = false;
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine does not think the root explorers continuation is better than Leelas.";
+      }
     }
-    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
-    return;
   }
+  search_->search_stats_->best_move_candidates_mutex.unlock();
   
   auto& vtp_buffer = workspace->vtp_buffer;
   auto& visits_to_perform = workspace->visits_to_perform;

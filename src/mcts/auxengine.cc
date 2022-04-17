@@ -238,6 +238,7 @@ void Search::AuxEngineWorker() {
       }
 
       search_stats_->best_move_candidates_mutex.lock();
+      search_stats_->helper_thinks_it_is_better = false;      
       search_stats_->winning_ = false;
       bool reconfiguration_needed = search_stats_->winning_threads_adjusted;
       search_stats_->winning_threads_adjusted = false;
@@ -705,15 +706,64 @@ void Search::AuxEngineWorker() {
     }
 
     if(thread < 3 && nodes_to_support > 500000){
-      // show the PV from continous helpers
+      // show the PV from continuous helpers
       std::string debug_string_root;      
       for(int i = 0; i < (int) my_moves_from_the_white_side.size(); i++){
 	debug_string_root = debug_string_root + my_moves_from_the_white_side[i].as_string() + " ";
       }
       if(params_.GetAuxEngineVerbosity() >= 3 && thread == 0) LOGFILE << "Helper PV from root, score (cp) "  << eval << " " << debug_string_root;
       if(params_.GetAuxEngineVerbosity() >= 3 && thread == 1 && depth > 0) LOGFILE << "Helper PV from Leelas favourite node, score (cp) "  << search_stats_->helper_eval_of_leelas_preferred_child << " " << debug_string_root;
-      if(params_.GetAuxEngineVerbosity() >= 3 && thread == 2 && depth > 0) LOGFILE << "Helper PV from the favourite node of the helper, score (cp) "  << search_stats_->helper_eval_of_helpers_preferred_child << " " << debug_string_root;            
+      if(params_.GetAuxEngineVerbosity() >= 3 && thread == 2 && depth > 0) LOGFILE << "Helper PV from the favourite node of the helper, score (cp) "  << search_stats_->helper_eval_of_helpers_preferred_child << " " << debug_string_root;
     }
+
+    // If thread 1, then find the divergent node compared to Leelas PV, and record a vector of moves up to that node.
+    if(thread == 1 && nodes_to_support > 500000){
+      std::vector<Move> Leelas_PV;
+      Node * divergent_node = root_node_;
+      
+      nodes_mutex_.lock_shared();
+      for(long unsigned int i = 0; i < my_moves_from_the_white_side.size(); i++){
+	if(divergent_node->GetN() > 0){
+	  Leelas_PV.push_back(GetBestChildNoTemperature(divergent_node, 0).edge()->GetMove());
+	  auto maybe_a_node = GetBestChildNoTemperature(divergent_node, 0);
+	  if(!maybe_a_node.HasNode()){
+	    LOGFILE << "No node here yet. Nothing to do";
+	    break;
+	  }
+	  divergent_node = maybe_a_node.node();
+	  if(Leelas_PV[i].as_string() != my_moves_from_the_white_side[i].as_string()){
+	    // find the node corresponding the helper recommended move
+	    for (auto& edge_and_node : divergent_node->GetParent()->Edges()){
+	      if(edge_and_node.GetMove().as_string() == my_moves_from_the_white_side[i].as_string()){
+		if(!edge_and_node.HasNode()){
+		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet!";
+		} else {
+		  divergent_node = edge_and_node.node();
+		  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 found the node which corresponds to the helper recommendation in Leelas PV: " << my_moves_from_the_white_side[i].as_string() << " at depth " << i;
+		  // Record the path to this node, and the node itself
+		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+		  if(search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ != divergent_node){
+		    search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = divergent_node;
+		    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+		    for(Node * n = divergent_node; n != root_node_; n = n->GetParent()){
+		      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.push_back(n->GetOwnEdge()->GetMove());
+		    }
+		    // Reverse the order, need to be move to child from root at the beginning.
+		    std::reverse(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin(), search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.end());
+		  }
+		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+		  break;
+		}
+	      }
+	    }
+	    break;
+	  }
+	}
+	// Leela agrees until a leaf
+      }
+      nodes_mutex_.unlock_shared();
+    }
+
 
     // Prepare autopilot and blunder vetoing START
     // before search_stats_->winning_threads_adjusted is set, accept changes in all directions.
@@ -740,12 +790,11 @@ void Search::AuxEngineWorker() {
       search_stats_->helper_PV = my_moves_from_the_white_side;
       // restart, if needed.
       if(need_to_restart_thread_one){
+	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated so that it now diverges at a different node from Leelas PV, stopping thread 1 and 2.";
 	search_stats_->auxengine_stopped_mutex_.lock();
 	for(int i = 1; i < 3; i++){
 	  if(!search_stats_->auxengine_stopped_[i]){
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated, stopping the A/B helper for thread=" << i << " Start.";
 	    *search_stats_->vector_of_opstreams[i] << "stop" << std::endl; // stop the A/B helper
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated, stopping the A/B helper for thread=" << i << " Stop.";
 	    search_stats_->auxengine_stopped_[i] = true;
 	  }
 	}
@@ -907,7 +956,7 @@ void Search::DoAuxEngine(Node* n, int index){
       depth++;
       n = divergent_node;
       if(index == 1){	
-	search_stats_->best_move_candidates_mutex.lock();
+	search_stats_->best_move_candidates_mutex.lock();	
 	search_stats_->Leelas_PV = Leelas_PV;
 	search_stats_->PVs_diverge_at_depth = depth-1;
 	search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;	  
@@ -1337,6 +1386,7 @@ void Search::AuxWait() {
   // Reset the force visits vector.
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
   
   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;

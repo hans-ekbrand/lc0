@@ -84,7 +84,10 @@ class Search {
     int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
     Node* Leelas_preferred_child_node_;
     Node* Helpers_preferred_child_node_; // protected by search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
+    Node* Helpers_preferred_child_node_in_Leelas_PV_;
     std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_;
+    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;
+    bool helper_thinks_it_is_better;
 
     std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams;
     std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams;
