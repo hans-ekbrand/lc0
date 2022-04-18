@@ -846,6 +846,8 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
                           ? edges.begin() + count
                           : edges.end();
 
+  // TODO remove this lock, this function is called too often.
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "About to take the lock on best_move_candidates";  
   search_stats_->best_move_candidates_mutex.lock();
   bool winning_ = search_stats_->winning_ || search_stats_->stop_a_blunder_;
   Move winning_move_;
