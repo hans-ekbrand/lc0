@@ -76,10 +76,10 @@ class Search {
     Move winning_move_;
     std::vector<Move> helper_PV; // Full PV from the helper, used to find where Leela and helper diverge.
     std::vector<Move> Leelas_PV; // Full PV from PV.
-    int PVs_diverge_at_depth;
-    float helper_eval_of_root;
-    float helper_eval_of_leelas_preferred_child;
-    float helper_eval_of_helpers_preferred_child;    
+    int PVs_diverge_at_depth = 0;
+    float helper_eval_of_root = 0;
+    float helper_eval_of_leelas_preferred_child = 0;
+    float helper_eval_of_helpers_preferred_child = 0;
     int number_of_nodes_in_support_for_helper_eval_of_root = 0;
     int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
     Node* Leelas_preferred_child_node_;
@@ -87,14 +87,14 @@ class Search {
     Node* Helpers_preferred_child_node_in_Leelas_PV_;
     std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_;
     std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;
-    bool helper_thinks_it_is_better;
+    bool helper_thinks_it_is_better = false;
 
     std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams;
     std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams;
     std::vector<std::shared_ptr<boost::process::child>> vector_of_children;
     std::vector<bool> vector_of_auxengine_ready_;
     std::vector<bool> auxengine_stopped_;
-    int thread_counter;
+    int thread_counter = 0;
     std::map<std::string, bool> my_pv_cache_;
 
     std::queue<Node*> nodes_added_by_the_helper; // this is useful only to assess how good the different sources are, it does not affect search

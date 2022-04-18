@@ -2182,7 +2182,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	}
 	if(!search_->search_stats_->helper_thinks_it_is_better){
 	  search_->search_stats_->helper_thinks_it_is_better = true;
-	  if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << search_->search_stats_->helper_eval_of_helpers_preferred_child - search_->search_stats_->helper_eval_of_leelas_preferred_child << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+	  if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << centipawn_diff << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
 	  if(params_.GetAuxEngineVerbosity() >= 4 && search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	     search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()) LOGFILE << std::max(1, orig_collision_limit - collision_limit) << " visits will be forced via the node where the helper diverges in Leelas PV, which happens at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
 	}
