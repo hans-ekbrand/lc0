@@ -2137,24 +2137,49 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
   // width. Maybe even do so outside of lock scope.
 
   if(override_cpuct){
-    // If the helper thinks its node is better then force visits to it (to show leela why this line is good).
-    // Todo: if the above is true, then also force visits into the PV from the helper from leelas preferred node (to show Leela why that line is bad).
-    // One needs to go into Leelas preferred line and find out where the helper diverges from Leela in that line.
-    // But if the helper actually prefers leelas line, then do nothing
-    float ratio_to_refutation = 0.25;
+    float ratio_to_refutation = 0.25; // Tune this?
     int orig_collision_limit = collision_limit;
     search_->search_stats_->best_move_candidates_mutex.lock(); // for reading search_stats_->winning_ and the other
+    int centipawn_diff = std::abs(search_->search_stats_->helper_eval_of_leelas_preferred_child - search_->search_stats_->helper_eval_of_helpers_preferred_child);
     if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0 &&
-       search_->search_stats_->helper_eval_of_leelas_preferred_child < search_->search_stats_->helper_eval_of_helpers_preferred_child
+       search_->search_stats_->helper_eval_of_leelas_preferred_child < search_->search_stats_->helper_eval_of_helpers_preferred_child      
        ){
       search_->search_stats_->best_move_candidates_mutex.unlock();
       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-      if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
+      int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+      if(depth > 0){      
+	// scale the number of visits by some factor that corresponds to how acute it is that Leela learns what the helper thinks. The downside is that Leela will have fewer free visits to find out unexpected stuff.
+	// highly acute is large diff and low depth of divergence.
+	float relevance = 0.20; // between 1 and 0
+	if(depth == 1 && centipawn_diff > 5){
+	  relevance = 1.0;
+	}
+	if(depth == 1 && centipawn_diff <= 5){
+	  relevance = 0.8;
+	}
+	if(depth == 2 && centipawn_diff > 5){
+	  relevance = 0.8;
+	}
+	if(depth == 2 && centipawn_diff <= 5){
+	  relevance = 0.5;
+	}
+	if(depth == 3 && centipawn_diff > 5){
+	  relevance = 0.6;
+	}
+	if(depth == 3 && centipawn_diff <= 5){
+	  relevance = 0.25;
+	}
+	if(depth == 4 && centipawn_diff > depth){
+	  relevance = 0.5;
+	}
+	orig_collision_limit = int(floor(orig_collision_limit * relevance));
 	// These can be the same, but in that case ignore the second. We assure they are different by requiring the second to be deeper.
 	if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	   search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()){
 	  // The visits is to be shared on two paths
 	  collision_limit = int(floor(collision_limit * (1 - ratio_to_refutation)));
+	} else {
+	  collision_limit = orig_collision_limit;
 	}
 	if(!search_->search_stats_->helper_thinks_it_is_better){
 	  search_->search_stats_->helper_thinks_it_is_better = true;
@@ -2181,7 +2206,6 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  task_count_.fetch_add(1, std::memory_order_acq_rel);
 	  task_added_.notify_all();	  
 	}
-	// task_added_.notify_all();
       }
       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
       return;
