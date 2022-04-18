@@ -1854,6 +1854,7 @@ void SearchWorker::GatherMinibatch2() {
     int new_start = static_cast<int>(minibatch_.size());
 
     if(iteration_counter == 0){
+      if(params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "SearchWorker::GatherMinibatch2 About to run PickNodesToExtend() with override_cpuct = true.";      
       // First run is a custom run which may override CPUCT and force visits into a specific line.
       int max_force_visits = int(floor(params_.GetMiniBatchSize() * params_.GetAuxEngineForceVisitsRatio()));
       PickNodesToExtend(max_force_visits, true);
@@ -2139,6 +2140,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
   if(override_cpuct){
     float ratio_to_refutation = 0.25; // Tune this?
     int orig_collision_limit = collision_limit;
+    if(params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on best_move_candidates.";
     search_->search_stats_->best_move_candidates_mutex.lock(); // for reading search_stats_->winning_ and the other
     int centipawn_diff = std::abs(search_->search_stats_->helper_eval_of_leelas_preferred_child - search_->search_stats_->helper_eval_of_helpers_preferred_child);
     if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0 &&
