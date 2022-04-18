@@ -739,14 +739,13 @@ void Search::AuxEngineWorker() {
 		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet!";
 		} else {
 		  divergent_node = edge_and_node.node();
-		  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 found the node which corresponds to the helper recommendation in Leelas PV: " << my_moves_from_the_white_side[i].as_string() << " at depth " << i;
 		  // Record the path to this node, and the node itself
 		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
 		  if(search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ != divergent_node &&
 		     search_stats_->Helpers_preferred_child_node_ != divergent_node){
 		    search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = divergent_node;
 		    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
-		    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Set Helpers_preferred_child_node_in_Leelas_PV_ and cleared vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_";
+		    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 found the node which corresponds to the helper recommendation in Leelas PV: " << my_moves_from_the_white_side[i].as_string() << " at depth " << i << "Setting Helpers_preferred_child_node_in_Leelas_PV_ and cleared vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_";
 		    for(Node * n = divergent_node; n != root_node_; n = n->GetParent()){
 		      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.push_back(n->GetOwnEdge()->GetMove());
 		    }
