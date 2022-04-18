@@ -2173,13 +2173,12 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  relevance = 0.5;
 	}
 	orig_collision_limit = int(floor(orig_collision_limit * relevance));
+	collision_limit = orig_collision_limit;	
 	// These can be the same, but in that case ignore the second. We assure they are different by requiring the second to be deeper.
 	if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	   search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()){
 	  // The visits is to be shared on two paths
 	  collision_limit = int(floor(collision_limit * (1 - ratio_to_refutation)));
-	} else {
-	  collision_limit = orig_collision_limit;
 	}
 	if(!search_->search_stats_->helper_thinks_it_is_better){
 	  search_->search_stats_->helper_thinks_it_is_better = true;
