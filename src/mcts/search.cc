@@ -2154,7 +2154,8 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       if(depth > 0){      
 	// scale the number of visits by some factor that corresponds to how acute it is that Leela learns what the helper thinks. The downside is that Leela will have fewer free visits to find out unexpected stuff.
 	// highly acute is large diff and low depth of divergence.
-	float relevance = 0.20; // between 1 and 0
+	// SSS Test showed that relevance 1.0 is best with 18 threads on root. The stronger the helpers, the better a high relevance will perform. For a 64 threads system this is good (SSS). Lower ForceVisitsRatio if you want less.
+	float relevance = 1.0; // between 1 and 0
 	if(depth == 1 && centipawn_diff > 5){
 	  relevance = 1.0;
 	}
