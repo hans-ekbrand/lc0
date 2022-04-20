@@ -846,16 +846,21 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
                           ? edges.begin() + count
                           : edges.end();
 
-  // TODO remove this lock, this function is called too often.
-  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "About to take the lock on best_move_candidates";  
-  search_stats_->best_move_candidates_mutex.lock();
-  bool winning_ = search_stats_->winning_ || search_stats_->stop_a_blunder_;
+  bool winning_ = false;
   Move winning_move_;
-  if (winning_){
-    winning_move_ = search_stats_->winning_move_;
-    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "The move: winning_move_ will override Q and N based comparisons, since the helper claims it is winning.";
+
+  // This function is called very often, only check for winning when it is move selection time.
+  if(stop_.load(std::memory_order_acquire)){
+    if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "About to take the lock on best_move_candidates";  
+    search_stats_->best_move_candidates_mutex.lock();
+    bool winning_ = search_stats_->winning_ || search_stats_->stop_a_blunder_;
+    Move winning_move_;
+    if (winning_){
+      winning_move_ = search_stats_->winning_move_;
+      if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "The move: winning_move_ will override Q and N based comparisons, since the helper claims it is winning.";
+    }
+    search_stats_->best_move_candidates_mutex.unlock();
   }
-  search_stats_->best_move_candidates_mutex.unlock();
   
   std::partial_sort(
       edges.begin(), middle, edges.end(),
