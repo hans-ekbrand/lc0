@@ -849,7 +849,10 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
   bool winning_ = false;
   Move winning_move_;
 
-  // This function is called very often, only check for winning when it is move selection time.
+  // This function is called very often, only check for winning when
+  // it is move selection time. TODO, add a boolean parameter to this
+  // function, and use that from SendUCI info, that way we always
+  // display correct move ordering.
   if(stop_.load(std::memory_order_acquire)){
     if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "About to take the lock on best_move_candidates";  
     search_stats_->best_move_candidates_mutex.lock();
