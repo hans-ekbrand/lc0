@@ -267,14 +267,20 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   bool need_to_restart_thread_one = false;
   bool premature_draw_avoidance_check_done = false;
 
+  // search is stopped and search_stats_->stop_a_blunder_ we are trying to save a win, then make sure Leelas eval of that move is not so low as to trigger a draw adjudication.
+  // This probably never happens in practice, I saw it in a case where the helper was not informed about the game history and therefore went into a draw by repetition.
+  search_stats_->best_move_candidates_mutex.lock();
+  bool stop_a_blunder = search_stats_->stop_a_blunder_;
+  bool save_a_win = search_stats_->save_a_win_;
+  Move winning_move = search_stats_->winning_move_;
+  search_stats_->best_move_candidates_mutex.unlock();
+  
   for (const auto& edge : edges) {
     ++multipv;
     uci_infos.emplace_back(common_info);
     auto& uci_info = uci_infos.back();
-
-    // search is stopped and search_stats_->stop_a_blunder_ we are trying to save a win, then make sure Leelas eval of that move is not so low as to trigger a draw adjudication.
-    if(stop_.load(std::memory_order_acquire) && search_stats_->stop_a_blunder_ && search_stats_->save_a_win_ && !premature_draw_avoidance_check_done){
-      if(edge.GetMove().as_string() == search_stats_->winning_move_.as_string()){
+    if(stop_.load(std::memory_order_acquire) && stop_a_blunder && save_a_win && !premature_draw_avoidance_check_done){
+      if(edge.GetMove().as_string() == winning_move.as_string()){
 	premature_draw_avoidance_check_done = true;
 	if(edge.GetQ(default_q, draw_score) < 0.3){
 	  LOGFILE << "In order to avoid premature draw adjudication, I need to increase Leelas eval of the node the helper thinks is winning.";
@@ -328,29 +334,31 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
     bool flip = played_history_.IsBlackToMove();
     int depth = 0;
     bool notified_already = false;
+    // If search is not stopped, check if the relevant part of Leelas PV has changed
+    search_stats_->best_move_candidates_mutex.lock();
+    std::vector<Move> local_copy_of_leelas_PV = search_stats_->Leelas_PV;
+    int local_copy_of_PVs_diverge_at_depth = search_stats_->PVs_diverge_at_depth;
+    search_stats_->best_move_candidates_mutex.unlock();
     for (auto iter = edge; iter;
          iter = GetBestChildNoTemperature(iter.node(), depth), flip = !flip) {
       uci_info.pv.push_back(iter.GetMove(flip));
       if (!iter.node()) break;  // Last edge was dangling, cannot continue.
 
-      // If search is not stopped, check if the relevant part of Leelas PV has changed
-      search_stats_->best_move_candidates_mutex.lock();
       if (!stop_.load(std::memory_order_acquire) && // search is not stopped
 	  multipv == 1 && // prefered PV
-	  depth <= search_stats_->PVs_diverge_at_depth && // not too deep
+	  depth <= local_copy_of_PVs_diverge_at_depth && // not too deep
 	  params_.GetAuxEngineFile() != "" && // helper is activated
-	  search_stats_->Leelas_PV.size() > 0 && // There is already a PV	  
+	  local_copy_of_leelas_PV.size() > 0 && // There is already a PV	  
 	  ! iter.node()->IsTerminal()){ // child is not terminal
-	if(iter.GetMove().as_string() != search_stats_->Leelas_PV[depth].as_string()){
+	if(iter.GetMove().as_string() != local_copy_of_leelas_PV[depth].as_string()){
 	  // Need to stop helper thread 1
 	  if(!notified_already){
 	    need_to_restart_thread_one = true;
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << search_stats_->PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << search_stats_->Leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
+	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << local_copy_of_PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 1 and 2.";
 	    notified_already = true;
 	  }
 	}
       }
-      search_stats_->best_move_candidates_mutex.unlock();      
 
       depth += 1;
     }
@@ -1209,7 +1217,9 @@ void Search::WatchdogThread() {
 void Search::FireStopInternal() {
   stop_.store(true, std::memory_order_release);
   watchdog_cv_.notify_all();
-  auxengine_cv_.notify_all();  
+  search_stats_->auxengine_mutex_.lock(); // won't this cause a deadlock?
+  search_stats_->auxengine_cv_.notify_all();
+  search_stats_->auxengine_mutex_.unlock();
 }
 
 void Search::Stop() {
@@ -1445,11 +1455,6 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
   bool black_to_move = ! search_->played_history_.IsBlackToMove() ^ (ply % 2 == 0);
   bool edge_found = false;
 
-  // // Check if search is stopped.
-  // if(search_->stop_.load(std::memory_order_acquire)){
-  //   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation_inner() returning early because search is stopped";
-  //   return;
-  // }
   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Trying to get a lock on nodes reading for node: " << my_node->DebugString();
   search_->nodes_mutex_.lock_shared();
   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Got a lock on nodes reading for node: " << my_node->DebugString();
@@ -1489,10 +1494,10 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
       	      Node * n = Leelas_favourite.node();
       	      // Check that it's not terminal
       	      if(!n->IsTerminal()){
-		// TODO: why is it needed to unlock here, I'd expected that the lock was necessary.		
-      		search_->nodes_mutex_.unlock_shared();
+		// // TODO: why is it needed to unlock here, I'd expected that the lock was necessary.		
+      		// search_->nodes_mutex_.unlock_shared();
       		AuxMaybeEnqueueNode(n);
-      		search_->nodes_mutex_.lock_shared();
+      		// search_->nodes_mutex_.lock_shared();
       	      } else {
       		if(params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move leads to a terminal node: " << n->DebugString();
       	      }
@@ -1762,13 +1767,6 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
 	bar->amount_of_support_for_PVs_.push(amount_of_support_for_PVs_);
 	bar->starting_depth_of_PVs_.push(starting_depth_of_PVs_);
       }
-      if (params_.GetAuxEngineVerbosity() >= 9) {
-	std::thread::id this_id = std::this_thread::get_id();
-	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of minibatch_ is " << minibatch_.size();
-	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of nodes_from_helper_added_by_this_PV is " << nodes_from_helper_added_by_this_PV.size();
-	LOGFILE << "Thread: " << this_id << ", PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of queue_of_vector_of_nodes_from_helper_added_by_this_thread is " << queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
-	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of search_stats_->fast_track_extend_and_evaluate_queue_ is " << search_->search_stats_->fast_track_extend_and_evaluate_queue_.size();
-      }
 
       // Check if search is stopped.
       if(search_->stop_.load(std::memory_order_acquire)){
@@ -1779,6 +1777,16 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
       // While we extended nodes, someone could have added more PV:s, update our belief about the current size of the queue.
       search_->search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock(); // lock this queue before reading from it again.
       search_->search_stats_->pure_stats_mutex_.lock_shared(); // Always end the while loop with the lock on.
+
+      // Now that we got the lock again, we can safely read from fast_track_extend_and_evaluate_queue_
+      if (params_.GetAuxEngineVerbosity() >= 9) {
+	std::thread::id this_id = std::this_thread::get_id();
+	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of minibatch_ is " << minibatch_.size();
+	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of nodes_from_helper_added_by_this_PV is " << nodes_from_helper_added_by_this_PV.size();
+	LOGFILE << "Thread: " << this_id << ", PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of queue_of_vector_of_nodes_from_helper_added_by_this_thread is " << queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
+	LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished one iteration, size of search_stats_->fast_track_extend_and_evaluate_queue_ is " << search_->search_stats_->fast_track_extend_and_evaluate_queue_.size();
+      }
+      
     } // end of while loop
     search_->search_stats_->pure_stats_mutex_.unlock_shared();
   }
@@ -3179,7 +3187,7 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 	// e is the current strategy
 	
 	std::string strategy;
-	float current_p;
+	float current_p = 0;
 	float c = 0.175f;
 	float d = 0.225f;
 	float min_c = 0.0f;
@@ -3188,9 +3196,9 @@ void SearchWorker::MaybeAdjustPolicyForHelperAddedNodes(const std::shared_ptr<Se
 
 	if(strategy == "a") minimum_policy = c;
 
+	float highest_p = 0;
 	if(strategy == "d" || strategy == "e"){
 	  // make sure that policy is at least as good as the best sibling.
-	  float highest_p = 0;
 	  // loop through the policies of the siblings.
 	  search_->nodes_mutex_.lock_shared();
 	  for (auto& edge : n->GetParent()->Edges()) {

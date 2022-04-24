@@ -62,40 +62,56 @@ class Search {
   };
 
   struct SearchStats {
-    std::queue<Node*> persistent_queue_of_nodes; // the query queue for the auxillary helper engine.
+
+    SharedMutex pure_stats_mutex_;
+    Mutex fast_track_extend_and_evaluate_queue_mutex_;    
+    Mutex vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_;
+    MyMutex auxengine_mutex_; // Mutex does not work with .wait().    
+    Mutex auxengine_listen_mutex_;
+    Mutex auxengine_stopped_mutex_;
+    Mutex my_pv_cache_mutex_;
+    Mutex best_move_candidates_mutex;
+    
+    std::queue<Node*> persistent_queue_of_nodes GUARDED_BY(auxengine_mutex_); // the query queue for the auxillary helper engine. // clang messes thread safety analysis up since type is std::mutex
+    // std::queue<Node*> persistent_queue_of_nodes; // the query queue for the auxillary helper engine.    
     // std::queue<int> source_of_queued_nodes; // 0 = SearchWorker::PickNodesToExtendTask(); 1 = Search::DoBackupUpdateSingleNode(); 2 = Search::SendUciInfo(); 3 = Search::AuxEngineWorker() node is root
     std::queue<std::vector<Move>> fast_track_extend_and_evaluate_queue_ GUARDED_BY(fast_track_extend_and_evaluate_queue_mutex_); // PV:s to be extended in Leelas search tree.
-    // std::queue<int> source_of_PVs; // 0 = SearchWorker::PickNodesToExtendTask(); 1 = Search::DoBackupUpdateSingleNode(); 2 = Search::SendUciInfo(); 3 = Search::AuxEngineWorker() node is root. Whenever k (=1 or more) PVs are created from a single node, add k elements with value source from source_of_queued_nodes into this queue.
-    std::queue<int> amount_of_support_for_PVs_; // Whenever an element from fast_track_extend_and_evaluate_queue_ is popped by PreExt...(), record the number of nodes to support for that PV in this vector. This way MaybeAdjustPolicyForHelperAddedNodes() can guesstimate the number of nodes there are to backup an added node.
-    std::queue<int> starting_depth_of_PVs_; // needed to calculate the estimated number of nodes in support for a recommended move.
-    bool winning_ = false;
-    bool stop_a_blunder_ = false;
-    bool save_a_win_ = false;
-    bool winning_threads_adjusted = false;
-    int non_winning_root_threads_; // only parse once, store the result in this variable so that we can reset without parsing again.
-    Move winning_move_;
-    std::vector<Move> helper_PV; // Full PV from the helper, used to find where Leela and helper diverge.
-    std::vector<Move> Leelas_PV; // Full PV from PV.
-    int PVs_diverge_at_depth = 0;
-    float helper_eval_of_root = 0;
-    float helper_eval_of_leelas_preferred_child = 0;
-    float helper_eval_of_helpers_preferred_child = 0;
-    int number_of_nodes_in_support_for_helper_eval_of_root = 0;
-    int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
-    Node* Leelas_preferred_child_node_;
-    Node* Helpers_preferred_child_node_; // protected by search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
-    Node* Helpers_preferred_child_node_in_Leelas_PV_;
-    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_;
-    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;
-    bool helper_thinks_it_is_better = false;
+    std::queue<int> amount_of_support_for_PVs_ GUARDED_BY(fast_track_extend_and_evaluate_queue_mutex_); // Whenever an element from fast_track_extend_and_evaluate_queue_ is popped by PreExt...(), record the number of nodes to support for that PV in this vector. This way MaybeAdjustPolicyForHelperAddedNodes() can guesstimate the number of nodes there are to support an added node.
+    std::queue<int> starting_depth_of_PVs_ GUARDED_BY(fast_track_extend_and_evaluate_queue_mutex_); // needed to calculate the estimated number of nodes in support for an added node.
 
-    std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams;
-    std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams;
-    std::vector<std::shared_ptr<boost::process::child>> vector_of_children;
-    std::vector<bool> vector_of_auxengine_ready_;
-    std::vector<bool> auxengine_stopped_;
-    int thread_counter = 0;
-    std::map<std::string, bool> my_pv_cache_;
+    bool helper_thinks_it_is_better GUARDED_BY(best_move_candidates_mutex) = false;    
+    bool winning_ GUARDED_BY(best_move_candidates_mutex) = false;
+    bool stop_a_blunder_ GUARDED_BY(best_move_candidates_mutex) = false;
+    bool save_a_win_ GUARDED_BY(best_move_candidates_mutex) = false;
+    bool winning_threads_adjusted GUARDED_BY(best_move_candidates_mutex) = false;
+    int non_winning_root_threads_ GUARDED_BY(best_move_candidates_mutex); // only parse once, store the result in this variable so that we can reset without parsing again.
+    Move winning_move_ GUARDED_BY(best_move_candidates_mutex);
+    std::vector<Move> helper_PV GUARDED_BY(best_move_candidates_mutex); // Full PV from the helper, used to find where Leela and helper diverge.
+    std::vector<Move> Leelas_PV GUARDED_BY(best_move_candidates_mutex); // Full PV from PV.
+    int PVs_diverge_at_depth GUARDED_BY(best_move_candidates_mutex) = 0;
+    float helper_eval_of_root GUARDED_BY(best_move_candidates_mutex) = 0;
+    float helper_eval_of_leelas_preferred_child GUARDED_BY(best_move_candidates_mutex) = 0;
+    float helper_eval_of_helpers_preferred_child GUARDED_BY(best_move_candidates_mutex) = 0;
+    int number_of_nodes_in_support_for_helper_eval_of_root GUARDED_BY(best_move_candidates_mutex) = 0;
+    int number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child GUARDED_BY(best_move_candidates_mutex) = 0;
+
+    // Node* Leelas_preferred_child_node_; // Not used currently, was used in stoppers.cc
+    Node* Helpers_preferred_child_node_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_); // protected by search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
+    Node* Helpers_preferred_child_node_in_Leelas_PV_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
+    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
+    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
+
+    std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams; // each pointer is only used by one thread, so no protection needed
+    std::vector<std::shared_ptr<boost::process::child>> vector_of_children; // each pointer is only used by one thread, so no protection needed
+    std::vector<std::shared_ptr<boost::process::opstream>> vector_of_opstreams GUARDED_BY(auxengine_stopped_mutex_);
+    std::vector<bool> auxengine_stopped_ GUARDED_BY(auxengine_stopped_mutex_);
+    
+    std::vector<bool> vector_of_auxengine_ready_; // each pointer is only used by one thread, so no protection needed
+    int thread_counter GUARDED_BY(pure_stats_mutex_) = 0;
+
+    std::map<std::string, bool> my_pv_cache_ GUARDED_BY(my_pv_cache_mutex_);
+
+    std::condition_variable auxengine_cv_ GUARDED_BY(auxengine_mutex_);
 
     std::queue<Node*> nodes_added_by_the_helper; // this is useful only to assess how good the different sources are, it does not affect search
     std::queue<int> source_of_added_nodes; // 0 = SearchWorker::PickNodesToExtendTask(); 1 = Search::DoBackupUpdateSingleNode(); 2 = Search::SendUciInfo(); 3 = Search::AuxEngineWorker() node is root
@@ -115,16 +131,8 @@ class Search {
     bool initial_purge_run = false; // used by AuxEngineWorker() thread 0 to inform subsequent threads that they should immediately return.
     std::queue<Move*> temporary_queue_of_moves; //
 
-    std::mutex fast_track_extend_and_evaluate_queue_mutex_;
-    // std::mutex pure_stats_mutex_;
-    mutable std::shared_mutex pure_stats_mutex_;
-    // SharedMutex pure_stats_mutex_;
-    std::mutex vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_;
-    std::mutex auxengine_mutex_;
-    std::mutex auxengine_listen_mutex_;
-    std::mutex auxengine_stopped_mutex_;
-    std::mutex my_pv_cache_mutex_;
-    std::mutex best_move_candidates_mutex;
+    // temporary stuff, but keeping them here to help clang with the thread safety analysis, but that failed anyway because auxengine_mutex_ is used with wait() which requires std::lock.
+    int64_t number_of_times_called_AuxMaybeEnqueueNode_ = 0 ;
 
   };
 
@@ -293,10 +301,7 @@ class Search {
       GUARDED_BY(nodes_mutex_);
 
   std::unique_ptr<UciResponder> uci_responder_;
-
-  // temporary stuff
-  int64_t number_of_times_called_AuxMaybeEnqueueNode_ = 0;
-  
+ 
   void OpenAuxEngine();
   void AuxEngineWorker();
   void AuxWait();
@@ -304,16 +309,6 @@ class Search {
   void AuxEncode_and_Enqueue(std::string pv_as_string, int depth, ChessBoard my_board, Position my_position, std::vector<lczero::Move> my_moves_from_the_white_side, bool require_some_depth, int thread);
   void AuxUpdateP(Node* n, std::vector<uint16_t> pv_moves, int ply, ChessBoard my_board);
 
-  // static boost::process::ipstream auxengine_is_;
-  // static boost::process::opstream auxengine_os_;
-  // static boost::process::child auxengine_c_;
-  // static bool auxengine_ready_;
-  // std::mutex fast_track_extend_and_evaluate_queue_mutex_;
-  // std::mutex pure_stats_mutex_;
-  // // std::queue<std::vector<Move>> fast_track_extend_and_evaluate_queue_ GUARDED_BY(fast_track_extend_and_evaluate_queue_mutex_); // for now only used by aux-engine, but could be used by a UCI extension: searchline eg. `go nodes 1000 searchline e2e4 c7c5 g1f3`
-  // std::mutex auxengine_mutex_;
-  // std::mutex auxengine_listen_mutex_;
-  std::condition_variable auxengine_cv_;
   std::vector<std::thread> auxengine_threads_;
   int64_t auxengine_total_dur = 0;
   int64_t auxengine_num_evals = 0;
@@ -612,7 +607,7 @@ class SearchWorker {
   TaskWorkspace main_workspace_;
   bool exiting_ = false;
 
-  void AuxMaybeEnqueueNode(Node* n);
+  void AuxMaybeEnqueueNode(Node* n) REQUIRES(Search::nodes_mutex_);
 
 };
 
