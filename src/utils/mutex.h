@@ -168,29 +168,18 @@ class CAPABILITY("mutex") SpinMutex {
   std::atomic<int> mutex_{0};
 };
 
-  class CAPABILITY( "mutex" ) MyMutex : public std::mutex
+class CAPABILITY( "mutex" ) MyMutex : public std::mutex
   {
   public:
-    void lock() ACQUIRE()
-    {
-      std::mutex::lock();
-    }
-    void unlock() RELEASE()
-    {
-      std::mutex::unlock();
-    }
+    void lock() ACQUIRE() { std::mutex::lock(); }
+    void unlock() RELEASE() { std::mutex::unlock(); }
   };
 
-  class SCOPED_CAPABILITY MyLockGuard : public std::unique_lock< std::mutex >
+class SCOPED_CAPABILITY MyLockGuard : public std::unique_lock< std::mutex >
   {
   public:
-    MyLockGuard( MyMutex& mu ) ACQUIRE( mu ) : std::unique_lock< std::mutex >( mu )
-      {
-      }
-    ~MyLockGuard() RELEASE()
-      {
-      }
+    MyLockGuard( MyMutex& mu ) ACQUIRE( mu ) : std::unique_lock< std::mutex >( mu ) { }
+    ~MyLockGuard() RELEASE() { }
   };
-  
 
 }  // namespace lczero

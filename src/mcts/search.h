@@ -70,7 +70,10 @@ class Search {
     Mutex auxengine_listen_mutex_;
     Mutex auxengine_stopped_mutex_;
     Mutex my_pv_cache_mutex_;
+    // SharedMutex best_move_candidates_mutex; For some reason this leads to a deadlock very early on.
     Mutex best_move_candidates_mutex;
+    // std::shared_mutex best_move_candidates_mutex; //fails
+    // std::mutex best_move_candidates_mutex; // works 
     
     std::queue<Node*> persistent_queue_of_nodes GUARDED_BY(auxengine_mutex_); // the query queue for the auxillary helper engine. // clang messes thread safety analysis up since type is std::mutex
     // std::queue<Node*> persistent_queue_of_nodes; // the query queue for the auxillary helper engine.    
@@ -132,7 +135,7 @@ class Search {
     std::queue<Move*> temporary_queue_of_moves; //
 
     // temporary stuff, but keeping them here to help clang with the thread safety analysis, but that failed anyway because auxengine_mutex_ is used with wait() which requires std::lock.
-    int64_t number_of_times_called_AuxMaybeEnqueueNode_ = 0 ;
+    int64_t number_of_times_called_AuxMaybeEnqueueNode_ GUARDED_BY(auxengine_mutex_) = 0 ;
 
   };
 

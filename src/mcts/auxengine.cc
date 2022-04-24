@@ -1099,7 +1099,7 @@ void Search::DoAuxEngine(Node* n, int index){
   bool winning;
   search_stats_->best_move_candidates_mutex.lock();
   winning = search_stats_->winning_;
-  search_stats_->best_move_candidates_mutex.unlock();  
+  search_stats_->best_move_candidates_mutex.unlock();
   if(
      (index == 0 &&
      (!params_.GetAuxEngineOptionsOnRoot().empty() || winning)
