@@ -69,24 +69,16 @@ void SearchWorker::AuxMaybeEnqueueNode(Node* n) REQUIRES(Search::nodes_mutex_){
   search_->search_stats_->auxengine_mutex_.lock();
   search_->search_stats_->number_of_times_called_AuxMaybeEnqueueNode_ += 1; // only for stats, not functionally necessary.
   
-  // if purging has already happened, then do nothing
-  if(! search_->search_stats_->final_purge_run) {
-    // if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE
-    //   << "AuxMaybeEnqueueNode() picked node: " << n->DebugString() 
-    //   << " for the persistent_queue_of_nodes which has size: "
-    //   << search_->search_stats_->persistent_queue_of_nodes.size()
-    //   << " The source was " << source;
-    n->SetAuxEngineMove(0xfffe); // magic for pending
-    if(search_->search_stats_->persistent_queue_of_nodes.size() < 30000) { // safety net for too low values of AuxEngineThreshold, which would cause this queue to overflow somehow, or just take too much time to check between moves.
-      search_->search_stats_->persistent_queue_of_nodes.push(n);
-      // search_->search_stats_->source_of_queued_nodes.push(source);
-      search_->search_stats_->auxengine_cv_.notify_one();
-    }
+  n->SetAuxEngineMove(0xfffe); // magic for pending
+  if(search_->search_stats_->persistent_queue_of_nodes.size() < 30000) { // safety net for too low values of AuxEngineThreshold, which would cause this queue to overflow somehow, or just take too much time to check between moves.
+    search_->search_stats_->persistent_queue_of_nodes.push(n);
+    search_->search_stats_->auxengine_cv_.notify_one();
   }
   search_->search_stats_->auxengine_mutex_.unlock();
 }
 
-void Search::AuxEngineWorker() {
+  // This thread makes heavy use of tricks to avoid relocking the same mutex, so it generates a lot of false positives.
+void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
   // aquire a lock on pure_stats_mutex_ to ensure no other thread is
   // modifying search_stats_->thread_counter or the vector_of_*
@@ -187,26 +179,27 @@ void Search::AuxEngineWorker() {
     }
     
     if(our_index == 0){
-      search_stats_->pure_stats_mutex_.lock();
-      // Initiate some stats and parameters (Threshold needs to be set
-      // earlier, see search() in search.cc)
-      search_stats_->AuxEngineTime = params_.GetAuxEngineTime();
-      search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
-      search_stats_->Total_number_of_nodes = 0;
-      // search_stats_->initial_purge_run = true;
       search_stats_->my_pv_cache_mutex_.lock();      
       search_stats_->my_pv_cache_.clear(); // Clear the PV cache.
       search_stats_->my_pv_cache_mutex_.unlock();      
+
+      search_stats_->pure_stats_mutex_.lock();
+      // Initiate some stats and parameters (Threshold needs to be set
+      // earlier, see search() in search.cc)
+      search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
+      search_stats_->Total_number_of_nodes = 0;
+
       if(search_stats_->New_Game){
 	search_stats_->New_Game = false;
+	LOGFILE << "Rare nested lock: pure_stats_mutex_ before a write lock on nodes.";
 	// Automatically inactivate the queueing machinery if there is only one instance AND OptionsOnRoot is NON-empty. Could save some time in ultra-bullet.
 	if(params_.GetAuxEngineInstances() == 1 &&
 	   !params_.GetAuxEngineOptionsOnRoot().empty()
 	   ){
+	  nodes_mutex_.lock(); // write lock necessary here.
 	  search_stats_->AuxEngineThreshold = 0;
-	  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Inactivating the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
-	} else  {
-	  search_stats_->AuxEngineThreshold = params_.GetAuxEngineThreshold();
+	  nodes_mutex_.unlock();
+	  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Inactivated the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
 	}
       }
     }
@@ -223,16 +216,15 @@ void Search::AuxEngineWorker() {
 
       needs_to_purge_nodes  = false;
       needs_to_purge_PVs  = false;
-	
-      search_stats_->AuxEngineTime = params_.GetAuxEngineTime();
+
       // Automatically inactivate the queueing machinery if there is only one instance and OptionsOnRoot is non-empty. Could save some time in ultra-bullet.
       if(params_.GetAuxEngineInstances() == 1 &&
 	 !params_.GetAuxEngineOptionsOnRoot().empty()
 	 ){
+	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Rare nested lock: pure_stats_mutex_ and nodes_mutex_ write lock. Inactivated the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
+	nodes_mutex_.lock(); // write lock is correct here	
 	search_stats_->AuxEngineThreshold = 0;
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Inactivating the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
-      } else  {
-	search_stats_->AuxEngineThreshold = params_.GetAuxEngineThreshold();
+	nodes_mutex_.unlock();	
       }
 
       search_stats_->best_move_candidates_mutex.lock();
@@ -449,6 +441,8 @@ void Search::AuxEngineWorker() {
 	
 	search_stats_->auxengine_mutex_.lock();
 	root_node_->SetAuxEngineMove(0xfffe); // mark root as pending and queue it
+	// Also set AuxEngineTime which is protected by the same lock
+	search_stats_->AuxEngineTime = params_.GetAuxEngineTime();
 	search_stats_->auxengine_mutex_.unlock();
 
 	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxEngineWorker() thread 0 found edges on root, allowed other threads to enter their main loop by setting initial_purge_run, and, finally, released shared lock nodes_mutex_.";
@@ -794,7 +788,8 @@ void Search::AuxEngineWorker() {
       search_stats_->helper_PV = my_moves_from_the_white_side;
       // restart, if needed.
       if(need_to_restart_thread_one){
-	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated so that it now diverges at a different node from Leelas PV, stopping thread 1 and 2.";
+	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated so that it now diverges at a different node from Leelas PV, stopping thread 1 and 2. Trying to aquire the auxengine_stopped_mutex_";
+	search_stats_->best_move_candidates_mutex.unlock();
 	search_stats_->auxengine_stopped_mutex_.lock();
 	for(int i = 1; i < 3; i++){
 	  if(!search_stats_->auxengine_stopped_[i]){
@@ -803,6 +798,8 @@ void Search::AuxEngineWorker() {
 	  }
 	}
 	search_stats_->auxengine_stopped_mutex_.unlock();
+	search_stats_->best_move_candidates_mutex.lock();	
+	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Thread 1 and 2 stopped, auxengine_stopped_mutex_ released";
       }
     }
 
@@ -880,7 +877,7 @@ void Search::DoAuxEngine(Node* n, int index){
     }
     // Make a copy of it
     std::vector<Move> helper_PV_local = search_stats_->helper_PV;
-    search_stats_->best_move_candidates_mutex.unlock();    
+    search_stats_->best_move_candidates_mutex.unlock();
 
     // step 1
     search_stats_->auxengine_mutex_.lock();  
@@ -916,6 +913,7 @@ void Search::DoAuxEngine(Node* n, int index){
 		if(!edge_and_node.HasNode()){
 		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet. Adding this line to fast_track_extend_and_evaluate_queue";
 		  // replace the last move in Leelas_PV with this move instead.
+		  nodes_mutex_.unlock_shared();
 		  if(Leelas_PV.size() > 0){
 		    Leelas_PV.pop_back();
 		    search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
@@ -926,7 +924,6 @@ void Search::DoAuxEngine(Node* n, int index){
 		    search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
 		    LOGFILE << "Node added to fast_track_extend_and_evaluate_queue, will sleep 30 milliseconds for the node to be added.";
 		  }
-		  nodes_mutex_.unlock_shared();
 		  std::this_thread::sleep_for(std::chrono::milliseconds(30));
 		  return;
 		}
@@ -968,7 +965,7 @@ void Search::DoAuxEngine(Node* n, int index){
       }
     } else {
       // They agree completely, just fill the cache with useful nodes by exploring root until they disagree again.
-      LOGFILE << "Leela and helper is in perfect agreement. Thread 1 and 2 will explore root to have a up to date cache when Leela and Helper disagrees next time.";
+      LOGFILE << "Leela and helper is in perfect agreement up to the end of one of the PV:s at depth " << depth << ". Thread 1 and 2 will explore root to have an up to date cache when Leela and Helper disagrees next time.";
       n = root_node_;
       depth = 0;
     }
@@ -993,13 +990,15 @@ void Search::DoAuxEngine(Node* n, int index){
 
   int AuxEngineTime;
 
-  // if we are thread 0 or thread 1 or thread 2, we don't have to bother with testing for depth
-  if(index > 2){
+  // For two different reasons we need auxengine_mutex_ (1) to safely set SetAuxEngineMove on the node (someone else might work on the same node)
+  // (2) we want to read the size of search_stats_->persistent_queue_of_nodes to determine if we need to calculate depth
+  // if we are thread 0 or thread 1 or thread 2, we don't have to bother with testing for depth, but we still need to stop if search has stopped
+  if(index > 2 || stop_.load(std::memory_order_acquire)){
     search_stats_->auxengine_mutex_.lock();
-    // Never add nodes to the queue after search has stopped or final purge is run
-    if(stop_.load(std::memory_order_acquire) ||
-       search_stats_->final_purge_run){
+    // Never start a new query after search has stopped.
+    if(stop_.load(std::memory_order_acquire)){
       // just unset pending so that the node can get picked up during next search.
+      // todo reenqueue the node instead.
       n->SetAuxEngineMove(0xffff);
       search_stats_->auxengine_mutex_.unlock();
       return;
@@ -1029,13 +1028,6 @@ void Search::DoAuxEngine(Node* n, int index){
     search_stats_->auxengine_mutex_.unlock();
   }
   
-  // if(depth > 1 &&
-  //    depth > params_.GetAuxEngineMaxDepth()){
-  //   // if (params_.GetAuxEngineVerbosity() >= 6) LOGFILE << "DoAuxEngine processing a node with high depth: " << " since sample " << sample << " is less than " << float(1.0f)/(depth);
-  // }
-    
-  // if (params_.GetAuxEngineVerbosity() >= 6) LOGFILE << "DoAuxEngine processing a node with depth: " << depth;
-
   std::string s = "";
   bool flip = played_history_.IsBlackToMove() ^ (depth % 2 == 0);
 
@@ -1239,7 +1231,8 @@ void Search::DoAuxEngine(Node* n, int index){
   if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Thread: " << index << " Finished at DoAuxEngine().";
 }
 
-void Search::AuxWait() {
+  // This function is only called after all the search threads and all EngineWorker threads have shut down.
+void Search::AuxWait() NO_THREAD_SAFETY_ANALYSIS {
   if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "In AuxWait()";
   while (!auxengine_threads_.empty()) {
     Mutex::Lock lock(threads_mutex_);
@@ -1255,6 +1248,7 @@ void Search::AuxWait() {
   search_stats_->my_pv_cache_mutex_.unlock();  
 
   search_stats_->auxengine_mutex_.lock();
+  nodes_mutex_.lock();  
 
   // Store the size of the queue, for possible adjustment of threshold and time
   search_stats_->AuxEngineQueueSizeAtMoveSelectionTime = search_stats_->persistent_queue_of_nodes.size();
@@ -1322,8 +1316,6 @@ void Search::AuxWait() {
       LOGFILE << "No nodes in the query queue at move selection";
   }
 
-  // search_stats_->final_purge_run = true; // Inform Search::AuxEngineWorker(), which can start *AFTER* us, that we have already purged stuff. If they also do it, things will break badly.
-  
   search_stats_->Number_of_nodes_added_by_AuxEngine = search_stats_->Number_of_nodes_added_by_AuxEngine + auxengine_num_updates;
   float observed_ratio = float(search_stats_->Number_of_nodes_added_by_AuxEngine) / search_stats_->Total_number_of_nodes;
 
@@ -1347,6 +1339,7 @@ void Search::AuxWait() {
   // Reset counters for the next move:
   search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
   search_stats_->Total_number_of_nodes = 0;
+  nodes_mutex_.unlock();    
   search_stats_->auxengine_mutex_.unlock();
 
   // search_stats_->Leelas_preferred_child_node_ = nullptr;

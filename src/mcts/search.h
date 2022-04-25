@@ -64,16 +64,17 @@ class Search {
   struct SearchStats {
 
     SharedMutex pure_stats_mutex_;
-    Mutex fast_track_extend_and_evaluate_queue_mutex_;    
-    Mutex vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_;
-    MyMutex auxengine_mutex_; // Mutex does not work with .wait().    
+    Mutex fast_track_extend_and_evaluate_queue_mutex_;
+    Mutex vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ ACQUIRED_AFTER(Search::nodes_mutex_);
+    MyMutex auxengine_mutex_ ACQUIRED_AFTER(Search::nodes_mutex_); // Mutex does not work with .wait().    
     Mutex auxengine_listen_mutex_;
-    Mutex auxengine_stopped_mutex_;
+    Mutex auxengine_stopped_mutex_ ACQUIRED_AFTER(auxengine_mutex_);
     Mutex my_pv_cache_mutex_;
     // SharedMutex best_move_candidates_mutex; For some reason this leads to a deadlock very early on.
     Mutex best_move_candidates_mutex;
     // std::shared_mutex best_move_candidates_mutex; //fails
-    // std::mutex best_move_candidates_mutex; // works 
+    // std::mutex best_move_candidates_mutex; // works
+    SharedMutex test_mutex_;
     
     std::queue<Node*> persistent_queue_of_nodes GUARDED_BY(auxengine_mutex_); // the query queue for the auxillary helper engine. // clang messes thread safety analysis up since type is std::mutex
     // std::queue<Node*> persistent_queue_of_nodes; // the query queue for the auxillary helper engine.    
@@ -119,10 +120,10 @@ class Search {
     std::queue<Node*> nodes_added_by_the_helper; // this is useful only to assess how good the different sources are, it does not affect search
     std::queue<int> source_of_added_nodes; // 0 = SearchWorker::PickNodesToExtendTask(); 1 = Search::DoBackupUpdateSingleNode(); 2 = Search::SendUciInfo(); 3 = Search::AuxEngineWorker() node is root
     
-    int AuxEngineTime; // dynamic version of the UCI option AuxEngineTime.
+    int AuxEngineTime GUARDED_BY(auxengine_mutex_); // dynamic version of the UCI option AuxEngineTime.
     unsigned long long int Total_number_of_nodes; // all nodes ever added to the tree.
-    unsigned long long int Number_of_nodes_added_by_AuxEngine; // all nodes ever added by the auxillary engine.
-    int AuxEngineThreshold; // dynamic version of the UCI option AuxEngineThreshold.
+    unsigned long long int Number_of_nodes_added_by_AuxEngine GUARDED_BY(search_stats_->pure_stats_mutex_); // all nodes ever added by the auxillary engine.
+    int AuxEngineThreshold GUARDED_BY(Search::nodes_mutex_); // dynamic version of the UCI option AuxEngineThreshold. Seldom written to but often read by a function that has a read-only lock on nodes, which is why it is efficient to use that mutex for it.
     int AuxEngineQueueSizeAtMoveSelectionTime;
     long unsigned int AuxEngineQueueSizeAfterPurging;
     Move ponder_move; // the move predicted by search().
@@ -130,8 +131,7 @@ class Search {
     bool New_Game = false; // used by EngineController::NewGame in engine.cc to inform search that a new game has started, so it can re-initiate AuxEngineTime to the value given by UCI
     int size_of_queue_at_start; // used by Search::AuxEngineWorker() to decide how many node to check for purging at the start of each move. Without this, new nodes added by before the purge happened would cause a crash.
     int current_depth = 1;
-    bool final_purge_run = false; // used by maybetriggerstop() to inform auxworker() that final purge happened before initial purge was started.
-    bool initial_purge_run = false; // used by AuxEngineWorker() thread 0 to inform subsequent threads that they should immediately return.
+    bool initial_purge_run GUARDED_BY(search_stats_->pure_stats_mutex_) = false; // used by AuxEngineWorker() thread 0 to inform subsequent threads that they should return immediately.
     std::queue<Move*> temporary_queue_of_moves; //
 
     // temporary stuff, but keeping them here to help clang with the thread safety analysis, but that failed anyway because auxengine_mutex_ is used with wait() which requires std::lock.
@@ -397,7 +397,7 @@ class SearchWorker {
   // 2. Gather minibatch.
   void GatherMinibatch();
   // Variant for multigather path.
-  void GatherMinibatch2();
+  void GatherMinibatch2(int number_of_nodes_already_added);
 
   // 2b. Copy collisions into shared_collisions_.
   void CollectCollisions();

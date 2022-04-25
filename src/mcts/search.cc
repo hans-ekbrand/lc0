@@ -190,7 +190,6 @@ Search::Search(const NodeTree& tree, Network* network,
   search_stats_->best_move_candidates_mutex.unlock();
   search_stats_->auxengine_mutex_.lock();
   search_stats_->size_of_queue_at_start = search_stats_->persistent_queue_of_nodes.size();
-  search_stats_->final_purge_run = false;
   search_stats_->thread_counter = 0;
   search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
   search_stats_->Total_number_of_nodes = root_node_->GetN();
@@ -269,16 +268,23 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 
   // search is stopped and search_stats_->stop_a_blunder_ we are trying to save a win, then make sure Leelas eval of that move is not so low as to trigger a draw adjudication.
   // This probably never happens in practice, I saw it in a case where the helper was not informed about the game history and therefore went into a draw by repetition.
-  search_stats_->best_move_candidates_mutex.lock();
-  bool stop_a_blunder = search_stats_->stop_a_blunder_;
-  bool save_a_win = search_stats_->save_a_win_;
-  Move winning_move = search_stats_->winning_move_;
-  search_stats_->best_move_candidates_mutex.unlock();
+  bool stop_a_blunder = false;
+  bool save_a_win = false;
+  Move winning_move;
+
+  if(stop_.load(std::memory_order_acquire)){  
+    search_stats_->best_move_candidates_mutex.lock();
+    stop_a_blunder = search_stats_->stop_a_blunder_;
+    save_a_win = search_stats_->save_a_win_;
+    winning_move = search_stats_->winning_move_;
+    search_stats_->best_move_candidates_mutex.unlock();
+  }
   
   for (const auto& edge : edges) {
     ++multipv;
     uci_infos.emplace_back(common_info);
     auto& uci_info = uci_infos.back();
+
     if(stop_.load(std::memory_order_acquire) && stop_a_blunder && save_a_win && !premature_draw_avoidance_check_done){
       if(edge.GetMove().as_string() == winning_move.as_string()){
 	premature_draw_avoidance_check_done = true;
@@ -862,7 +868,6 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
   // function, and use that from SendUCI info, that way we always
   // display correct move ordering.
   if(stop_.load(std::memory_order_acquire)){
-    if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "About to take the lock on best_move_candidates";  
     search_stats_->best_move_candidates_mutex.lock();
     bool winning_ = search_stats_->winning_ || search_stats_->stop_a_blunder_;
     Move winning_move_;
@@ -1384,7 +1389,8 @@ void SearchWorker::ExecuteOneIteration() {
 
   if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " PreExtendTreeAndFastTrackForNNEvaluation() finished in ExecuteOneIteration().";
   // 2. Gather minibatch.
-  GatherMinibatch2();
+  int number_of_nodes_already_added = foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
+  GatherMinibatch2(number_of_nodes_already_added);
   
   task_count_.store(-1, std::memory_order_release);
   search_->backend_waiting_counter_.fetch_add(1, std::memory_order_relaxed);
@@ -1823,7 +1829,7 @@ int CalculateCollisionsLeft(int64_t nodes, const SearchParams& params) {
 }
 }  // namespace
 
-void SearchWorker::GatherMinibatch2() {
+void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
   // Total number of nodes to process.
   int minibatch_size = 0;
   int cur_n = 0;
@@ -1850,7 +1856,8 @@ void SearchWorker::GatherMinibatch2() {
   // Gather nodes to process in the current batch.
   // If we had too many nodes out of order, also interrupt the iteration so
   // that search can exit.
-  while (minibatch_size < params_.GetMiniBatchSize() &&
+
+  while (minibatch_size < params_.GetMiniBatchSize() - number_of_nodes_already_added &&
          number_out_of_order_ < params_.GetMaxOutOfOrderEvals()) {
     // If there's something to process without touching slow neural net, do it.
     if (minibatch_size > 0 && computation_->GetCacheMisses() == 0) return;
@@ -1874,12 +1881,12 @@ void SearchWorker::GatherMinibatch2() {
     if(iteration_counter == 0){
       if(params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "SearchWorker::GatherMinibatch2 About to run PickNodesToExtend() with override_cpuct = true.";      
       // First run is a custom run which may override CPUCT and force visits into a specific line.
-      int max_force_visits = int(floor(params_.GetMiniBatchSize() * params_.GetAuxEngineForceVisitsRatio()));
+      int max_force_visits = int(floor((params_.GetMiniBatchSize() - number_of_nodes_already_added)* params_.GetAuxEngineForceVisitsRatio()));
       PickNodesToExtend(max_force_visits, true);
     } else {
       // Normal run
       PickNodesToExtend(
-        std::min({collisions_left, params_.GetMiniBatchSize() - minibatch_size,
+        std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
 	    params_.GetMaxOutOfOrderEvals() - number_out_of_order_}), false);
     }
     iteration_counter++;
