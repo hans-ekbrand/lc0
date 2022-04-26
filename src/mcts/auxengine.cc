@@ -484,13 +484,18 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     // edges for any other reason (e.g. being terminal), in which case
     // we should wait and try again later.
 
+    bool root_got_edges = false;
     while(!root_is_queued) {
       if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 about to aquire a shared lock nodes_mutex_ in order to read root";
-      nodes_mutex_.lock_shared(); // only needed to read GetNumEdges(), SetAuxEngineMove(0xfffe) is already protected by search_stats_->auxengine_mutex_.lock();
+      {
+	SharedMutex::SharedLock lock(nodes_mutex_);
+	if(root_node_->GetNumEdges() > 0) root_got_edges = true;
+      }
+      // nodes_mutex_.lock_shared(); // only needed to read GetNumEdges(), SetAuxEngineMove(0xfffe) is already protected by search_stats_->auxengine_mutex_.lock();
       if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 aquired a shared lock nodes_mutex_ in order to read root";      
-      if(root_node_->GetNumEdges() > 0){
+      if(root_got_edges){
 	// root is extended.
-	nodes_mutex_.unlock_shared(); // unlock the read-lock on noodes.
+	// nodes_mutex_.unlock_shared(); // unlock the read-lock on noodes.
 	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "nodes_mutex released)";
 	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_)";
 	search_stats_->auxengine_mutex_.lock();
@@ -505,7 +510,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	root_is_queued = true;
 	DoAuxEngine(root_node_, our_index);
       } else {
-	nodes_mutex_.unlock_shared(); // unlock, nothing more to do until root gets edges.
+	// nodes_mutex_.unlock_shared(); // unlock, nothing more to do until root gets edges.
 	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxEngineWorker() thread 0 released shared lock nodes_mutex_.";	
 	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxEngineWorker() thread 0 found root node has no edges will sleep 30 ms";
 	using namespace std::chrono_literals;
