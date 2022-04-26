@@ -56,7 +56,8 @@ void Search::OpenAuxEngine() REQUIRES(threads_mutex_) {
   }
 }
 
-void SearchWorker::AuxMaybeEnqueueNode(Node* n) REQUIRES(Search::nodes_mutex_){
+// void SearchWorker::AuxMaybeEnqueueNode(Node* n) REQUIRES_SHARED(Search::nodes_mutex_){  
+void SearchWorker::AuxMaybeEnqueueNode(Node* n) {
   // the caller (DoBackupUpdate()->DoBackupUpdateSingleNode()) has a lock on search_->nodes_mutex_, so no other thread will change n right now.
   // There are two callers, also PreExtend() which also has that lock
 
@@ -526,15 +527,13 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       // if search has already stopped, break early.
       if (stop_.load(std::memory_order_acquire)) break;
       bool initial_purge_run;
-      {
-	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " trying to obtain a shared lock on search_stats_->pure_stats_mutex_.";
-	// SharedMutex::Lock lock(search_stats_->pure_stats_mutex_);	  
-	// std::shared_lock lock(search_stats_->pure_stats_mutex_);
-	std::unique_lock lock(search_stats_->pure_stats_mutex_);
-	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " obtained a shared lock on search_stats_->pure_stats_mutex_.";
-	initial_purge_run = search_stats_->initial_purge_run;
-      }
-      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " implictly released a shared lock on search_stats_->pure_stats_mutex_.";
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " trying to obtain a shared lock on search_stats_->pure_stats_mutex_.";
+      // std::unique_lock lock(search_stats_->pure_stats_mutex_);
+      search_stats_->pure_stats_mutex_.lock_shared();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " obtained a shared lock on search_stats_->pure_stats_mutex_.";
+      initial_purge_run = search_stats_->initial_purge_run;
+      search_stats_->pure_stats_mutex_.unlock_shared();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " released a shared lock on search_stats_->pure_stats_mutex_.";
       if(!initial_purge_run) {
 	// search_stats_->pure_stats_mutex_.unlock();
 	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " waiting for thread 0 to purge the queues and check that root has edges, will sleep in cycles of 30 ms until that happens or search is stopped.";
