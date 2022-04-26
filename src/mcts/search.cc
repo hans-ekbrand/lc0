@@ -2168,16 +2168,19 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
   if(override_cpuct){
     float ratio_to_refutation = 0.25; // Tune this?
     int orig_collision_limit = collision_limit;
-    if(params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on best_move_candidates.";
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on best_move_candidates.";
     search_->search_stats_->best_move_candidates_mutex.lock(); // for reading search_stats_->winning_ and the other
-    if(params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "SearchWorker::PickNodesToExtendTask() Lock on best_move_candidates aquired.";    
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() Lock on best_move_candidates aquired.";    
     int centipawn_diff = std::abs(search_->search_stats_->helper_eval_of_leelas_preferred_child - search_->search_stats_->helper_eval_of_helpers_preferred_child);
     if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0 &&
        search_->search_stats_->helper_eval_of_leelas_preferred_child < search_->search_stats_->helper_eval_of_helpers_preferred_child      
        ){
       search_->search_stats_->best_move_candidates_mutex.unlock();
-      search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-      int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() Lock on best_move_candidates released.";
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.";
+    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ aquired.";
+    int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
       if(depth > 0){      
 	// scale the number of visits by some factor that corresponds to how acute it is that Leela learns what the helper thinks. The downside is that Leela will have fewer free visits to find out unexpected stuff.
 	// highly acute is large diff and low depth of divergence.
@@ -2218,6 +2221,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  if(params_.GetAuxEngineVerbosity() >= 4 && search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	     search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()) LOGFILE << std::max(1, orig_collision_limit - collision_limit) << " visits will be forced via the node where the helper diverges in Leelas PV, which happens at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
 	}
+	// Note nested lock picking_tasks_mutex_ within vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
 	Mutex::Lock lock(picking_tasks_mutex_);
 	picking_tasks_.emplace_back(
 		  search_->search_stats_->Helpers_preferred_child_node_,
@@ -2239,16 +2243,18 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	}
       }
       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
-      return;
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ released.";
+    return;
     } else {
       if(search_->search_stats_->helper_thinks_it_is_better){
 	search_->search_stats_->helper_thinks_it_is_better = false;
 	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine does not think the root explorers continuation is better than Leelas.";
       }
     }
+    search_->search_stats_->best_move_candidates_mutex.unlock();
+    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() best_move_candidates released.";
   }
-  search_->search_stats_->best_move_candidates_mutex.unlock();
-  
+
   auto& vtp_buffer = workspace->vtp_buffer;
   auto& visits_to_perform = workspace->visits_to_perform;
   visits_to_perform.clear();

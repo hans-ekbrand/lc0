@@ -776,10 +776,13 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       }
       if(params_.GetAuxEngineVerbosity() >= 3 && thread == 0) LOGFILE << "Helper PV from root, score (cp) "  << eval << " " << debug_string_root;
       if(params_.GetAuxEngineVerbosity() >= 3 && depth > 0 && thread > 0 && thread < 3){
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << thread << " aquire best_move_candidates";
 	search_stats_->best_move_candidates_mutex.lock();
-	if(thread == 1) LOGFILE << "Helper PV from Leelas favourite node, score (cp) "  << search_stats_->helper_eval_of_leelas_preferred_child << " " << debug_string_root;
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << thread << " best_move_candidates aquired";
+ if(thread == 1) LOGFILE << "Helper PV from Leelas favourite node, score (cp) "  << search_stats_->helper_eval_of_leelas_preferred_child << " " << debug_string_root;
 	if(thread == 2) LOGFILE << "Helper PV from the favourite node of the helper, score (cp) "  << search_stats_->helper_eval_of_helpers_preferred_child << " " << debug_string_root;
-	search_stats_->best_move_candidates_mutex.unlock();	
+	search_stats_->best_move_candidates_mutex.unlock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << thread << " best_move_candidates released.";
       }
     }
 
