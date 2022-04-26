@@ -488,10 +488,10 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     bool root_got_edges = false;
     while(!root_is_queued) {
       if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 about to aquire a shared lock nodes_mutex_ in order to read root";
-      // {
-      // 	SharedMutex::SharedLock lock(nodes_mutex_);
+      {
+	SharedMutex::SharedLock lock(nodes_mutex_);
 	if(root_node_->GetNumEdges() > 0) root_got_edges = true;
-      // }
+      }
       // nodes_mutex_.lock_shared(); // only needed to read GetNumEdges(), SetAuxEngineMove(0xfffe) is already protected by search_stats_->auxengine_mutex_.lock();
       if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 aquired a shared lock nodes_mutex_ in order to read root";      
       if(root_got_edges){
@@ -843,7 +843,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     // after search_stats_->winning_threads_adjusted is set, just inform, don't change the state of search_stats_->winning_
 
     search_stats_->best_move_candidates_mutex.lock();
-    if(depth == 0 && thread == 0){
+    if(depth == 0 && thread == 0 && params_.GetAuxEngineInstances() > 1){
       // Only stop thread 1 and 2 if the change was relevant to the divergence.
       std::vector<Move> helper_PV_old = search_stats_->helper_PV;
       bool need_to_restart_thread_one = false;
@@ -866,7 +866,9 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Helpers mainline updated so that it now diverges at a different node from Leelas PV, stopping thread 1 and 2. Trying to aquire the auxengine_stopped_mutex_";
 	search_stats_->best_move_candidates_mutex.unlock();
 	search_stats_->auxengine_stopped_mutex_.lock();
-	for(int i = 1; i < 3; i++){
+	// work even if there are only two AuxEngineInstances ready, i can either be max 1 or max 2.
+	int instances = search_stats_->auxengine_stopped_.size();
+	for(int i = 1; i < std::min(3, instances); i++){
 	  if(!search_stats_->auxengine_stopped_[i]){
 	    *search_stats_->vector_of_opstreams[i] << "stop" << std::endl; // stop the A/B helper
 	    search_stats_->auxengine_stopped_[i] = true;

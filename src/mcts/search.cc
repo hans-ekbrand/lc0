@@ -371,9 +371,9 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   }
 
   if(need_to_restart_thread_one){
-    // stop helper instance 2 (index 1) if it is running. When restarted it will pick up the new favoured move.
     search_stats_->auxengine_stopped_mutex_.lock();
-    for(int i = 1; i < 3; i++){
+    int instances = search_stats_->auxengine_stopped_.size();
+    for(int i = 1; i < std::min(3, instances); i++){
       if(!search_stats_->auxengine_stopped_[i]){
 	*search_stats_->vector_of_opstreams[i] << "stop" << std::endl; // stop the A/B helper
 	search_stats_->auxengine_stopped_[i] = true;
@@ -2176,11 +2176,11 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
        search_->search_stats_->helper_eval_of_leelas_preferred_child < search_->search_stats_->helper_eval_of_helpers_preferred_child      
        ){
       search_->search_stats_->best_move_candidates_mutex.unlock();
-    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() Lock on best_move_candidates released.";
-    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.";
-    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-    if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ aquired.";
-    int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() Lock on best_move_candidates released.";
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() About to aquire a lock on vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.";
+      search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ aquired.";
+      int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
       if(depth > 0){      
 	// scale the number of visits by some factor that corresponds to how acute it is that Leela learns what the helper thinks. The downside is that Leela will have fewer free visits to find out unexpected stuff.
 	// highly acute is large diff and low depth of divergence.
