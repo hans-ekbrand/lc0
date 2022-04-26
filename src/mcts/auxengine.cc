@@ -78,13 +78,16 @@ void SearchWorker::AuxMaybeEnqueueNode(Node* n) REQUIRES(Search::nodes_mutex_){
 }
 
   // This thread makes heavy use of tricks to avoid relocking the same mutex, so it generates a lot of false positives.
+  // To counter this, I'll put debug statements around all lock taking and lock releasing in this function.
 void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
   // aquire a lock on pure_stats_mutex_ to ensure no other thread is
   // modifying search_stats_->thread_counter or the vector_of_*
   // vectors
 
+  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << " wait for pure stats";  
   search_stats_->pure_stats_mutex_.lock();
+  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << " pure stats aquired. I don't know which thread I'll become just yet.";    
 
   // Find out which thread we are by reading the thread_counter.
 
@@ -109,23 +112,24 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
  
     // populate the global vectors. 
     search_stats_->vector_of_ipstreams.emplace_back(new boost::process::ipstream);
+  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped";   
     search_stats_->auxengine_stopped_mutex_.lock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired";
     search_stats_->vector_of_opstreams.emplace_back(new boost::process::opstream);
     search_stats_->vector_of_children.emplace_back(new boost::process::child);
 
     // Start the helper
     *search_stats_->vector_of_children[our_index] = boost::process::child(params_.GetAuxEngineFile(), boost::process::std_in < *search_stats_->vector_of_opstreams[our_index], boost::process::std_out > *search_stats_->vector_of_ipstreams[our_index]);
-    search_stats_->auxengine_stopped_mutex_.unlock();
-
     // Record that we have started, so that we can skip this on the next invocation.
     search_stats_->vector_of_auxengine_ready_.push_back(true);
-
-    // unlock while we wait for the engine to be finished?
-    search_stats_->pure_stats_mutex_.unlock();
-
-    search_stats_->auxengine_stopped_mutex_.lock();
+    // Set the state of this instance to "stopped", ie not currently running analysis, does not need to be stopped.
     search_stats_->auxengine_stopped_.push_back(true);
     search_stats_->auxengine_stopped_mutex_.unlock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released";
+
+    // unlock while we wait for the engine to be finished. Others will not touch our slot.
+    search_stats_->pure_stats_mutex_.unlock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " pure_stats released";
 
     std::string bar;
     // If AuxEngineOptionsOnRoot is set, Thread zero (and one and two if they exists) uses a different parameter and it continuosly explores the root node and the nodes where Leela and the helper disagree.
@@ -146,13 +150,20 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       oss << "setoption name " << token;
       std::getline(iss, token, ';');
       oss << " value " << token;
+      // At this point, search_stats_->auxengine_stopped_[our_index] is true, so no one else will send any data into this stream, so we don't really need to take a lock, but let's err on the side of caution.
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped";
       search_stats_->auxengine_stopped_mutex_.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired";
       *search_stats_->vector_of_opstreams[our_index] << oss.str() << std::endl;
-      search_stats_->auxengine_stopped_mutex_.unlock();	
+      search_stats_->auxengine_stopped_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released";
     }
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped";
     search_stats_->auxengine_stopped_mutex_.lock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired";
     *search_stats_->vector_of_opstreams[our_index] << "uci" << std::endl;
-    search_stats_->auxengine_stopped_mutex_.unlock();      
+    search_stats_->auxengine_stopped_mutex_.unlock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released";
 
     std::string line;
     while(std::getline(*search_stats_->vector_of_ipstreams[our_index], line)) {
@@ -170,20 +181,28 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
             std::ostringstream oss;
             oss << "setoption name SyzygyPath value " << syzygy_tb_->get_paths();
             if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << oss.str();
+	    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped";
 	    search_stats_->auxengine_stopped_mutex_.lock();
-	    *search_stats_->vector_of_opstreams[our_index] << oss.str() << std::endl;	    
+	    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired";
+	    *search_stats_->vector_of_opstreams[our_index] << oss.str() << std::endl;
 	    search_stats_->auxengine_stopped_mutex_.unlock();
+	    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released";	    
           }
         }
       }
     }
     
     if(our_index == 0){
-      search_stats_->my_pv_cache_mutex_.lock();      
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire my_pv_cache_";
+      search_stats_->my_pv_cache_mutex_.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " my_pv_cache_ aquired";
       search_stats_->my_pv_cache_.clear(); // Clear the PV cache.
-      search_stats_->my_pv_cache_mutex_.unlock();      
+      search_stats_->my_pv_cache_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " my_pv_cache_ released";      
 
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire pure_stats";      
       search_stats_->pure_stats_mutex_.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " pure_stats_ aquired";
       // Initiate some stats and parameters (Threshold needs to be set
       // earlier, see search() in search.cc)
       search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
@@ -191,14 +210,16 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
       if(search_stats_->New_Game){
 	search_stats_->New_Game = false;
-	LOGFILE << "Rare nested lock: pure_stats_mutex_ before a write lock on nodes.";
 	// Automatically inactivate the queueing machinery if there is only one instance AND OptionsOnRoot is NON-empty. Could save some time in ultra-bullet.
 	if(params_.GetAuxEngineInstances() == 1 &&
 	   !params_.GetAuxEngineOptionsOnRoot().empty()
 	   ){
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire write lock on nodes_ (nested in pure_stats)";
 	  nodes_mutex_.lock(); // write lock necessary here.
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "write lock on nodes_ (nested in pure_stats) aquired";
 	  search_stats_->AuxEngineThreshold = 0;
 	  nodes_mutex_.unlock();
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "write lock on nodes_ (nested in pure_stats) released.";
 	  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Inactivated the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
 	}
       }
@@ -222,12 +243,17 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	 !params_.GetAuxEngineOptionsOnRoot().empty()
 	 ){
 	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Rare nested lock: pure_stats_mutex_ and nodes_mutex_ write lock. Inactivated the queueing machinery since there is exactly one instance and OnRoot is non-empty.";
-	nodes_mutex_.lock(); // write lock is correct here	
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire write lock on nodes_ (nested in pure_stats)";
+	nodes_mutex_.lock(); // write lock is correct here
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "write lock on nodes_ (nested in pure_stats) aquired";
 	search_stats_->AuxEngineThreshold = 0;
 	nodes_mutex_.unlock();	
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "write lock on nodes_ (nested in pure_stats) released";
       }
 
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire best_move_candidates)";
       search_stats_->best_move_candidates_mutex.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates aquired)";
       search_stats_->helper_thinks_it_is_better = false;      
       search_stats_->winning_ = false;
       bool reconfiguration_needed = search_stats_->winning_threads_adjusted;
@@ -237,13 +263,17 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       // before unlocking, save data on number of threads
       int non_winning_number_of_threads = search_stats_->non_winning_root_threads_;
       search_stats_->best_move_candidates_mutex.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates released)";
       if(reconfiguration_needed){
 	// during the previous game, the root exploring helper was reconfigured to use more threads, reconfigure again back to the normal state.
 	// if winning_ was changed from false to true only during the very last move, winning_threads_adjusted is false and no reconfiguration has yet taken place, thus no reconfiguration is needed here.
-	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxWorker() reconfigured the root-helper to use " << non_winning_number_of_threads << " number of threads again since a new game started.";
+	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << " auxWorker() reconfigured the root-helper to use " << non_winning_number_of_threads << " number of threads again since a new game started.";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped)";
 	search_stats_->auxengine_stopped_mutex_.lock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired)";
 	*search_stats_->vector_of_opstreams[our_index] << "setoption name Threads value " << non_winning_number_of_threads << std::endl;	    
 	search_stats_->auxengine_stopped_mutex_.unlock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released.)";
       }
 
       search_stats_->Total_number_of_nodes = 0;
@@ -254,21 +284,29 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
       // change lock to purge queue of PVs
       // search_stats_->pure_stats_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire fast_track)";
       search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "fast_track aquired)";
       search_stats_->fast_track_extend_and_evaluate_queue_ = {};
       search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
-
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "fast_track released)";
+      
       // different lock for queue of nodes
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine)";
       search_stats_->auxengine_mutex_.lock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine aquired)";
       search_stats_->persistent_queue_of_nodes = {};
       if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Thread 0 has initiated the global variables, since a new game has started.";
       search_stats_->auxengine_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine released)";
     }
 
     // If the helper now claims a win, reroute all resources to the root explorer.
     int threads_when_winning = 0;
 
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire best_move_candidates)";
     search_stats_->best_move_candidates_mutex.lock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates aquired)";
     bool winning_threads_adjusted = search_stats_->winning_threads_adjusted; // temporary variable need to avoid nested locks below.
     
     if(search_stats_->winning_){
@@ -298,25 +336,32 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       }
       threads_when_winning = 2 * threads_when_winning + params_.GetAuxEngineInstances();
     }
-
     search_stats_->best_move_candidates_mutex.unlock();
-
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates released)";
+    
     // if threads_when_winning > 0, then reconfigure the helper managed by thread 0, and all other threads should just return early (doing nothing)
     if(threads_when_winning > 0){
       if(our_index > 0){
-	// LOGFILE << "AuxWorker() thread " << our_index << " shutting down since the helper claims a win";
+	// LOGFILE << " auxWorker() thread " << our_index << " shutting down since the helper claims a win";
 	search_stats_->pure_stats_mutex_.unlock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " pure stats released, returning from AuxEngineWorker().)";
 	return;
       } else {
 	if(!winning_threads_adjusted){
 	  // Thread zero, just reconfigure the root explorer to use all available threads
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire best_move_candidates)";
 	  search_stats_->best_move_candidates_mutex.lock();
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates aquired)";
 	  search_stats_->winning_threads_adjusted = true;
-	  search_stats_->best_move_candidates_mutex.unlock();	  
-	  LOGFILE << "AuxWorker() reconfigured the root-helper to use " << threads_when_winning << " threads.";
+	  search_stats_->best_move_candidates_mutex.unlock();
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "best_move_candidates released)";
+	  LOGFILE << " auxWorker() reconfigured the root-helper to use " << threads_when_winning << " threads.";
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_stopped)";	  
 	  search_stats_->auxengine_stopped_mutex_.lock();
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped aquired)";
 	  *search_stats_->vector_of_opstreams[our_index] << "setoption name Threads value " << threads_when_winning << std::endl;	    
 	  search_stats_->auxengine_stopped_mutex_.unlock();
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_stopped released)";
 	}
       }
     }
@@ -329,7 +374,9 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     if(our_index == 0){
 
       if(needs_to_purge_nodes || needs_to_purge_PVs){
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_)";
 	search_stats_->auxengine_mutex_.lock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_ aquired)";
 	if(search_stats_->persistent_queue_of_nodes.size() > 0){
 	  // The even elements are the actual nodes, the odd elements is root if the preceding even element is still a relevant node.
 	  int number_of_nodes_before_purging = int(search_stats_->size_of_queue_at_start / 2);
@@ -358,7 +405,10 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
 	// Also purge obsolete PV:s if any, but that requires a different lock
 	search_stats_->auxengine_mutex_.unlock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine released)";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire fast_track)";
 	search_stats_->fast_track_extend_and_evaluate_queue_mutex_.lock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "fast_track aquired)";
 
 	// Should be safe and should not require a lock, as long as solidtrees is inactivated.
 	bool root_valid_move_found = false;
@@ -395,10 +445,12 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	}
 	
 	search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "fast_track released)";
       } // end of needs_to_purge*
     } else {
       // We are not thread zero so just release the lock after we have increased the thread counter.
       search_stats_->pure_stats_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " pure_stats released)";
     }
   } // Not starting from scratch
 
@@ -422,6 +474,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       search_stats_->initial_purge_run = true;
       // if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxEngineWorker() thread 0 have set initial_purge_run and is about to release shared lock pure_stats_mutex_.";
       search_stats_->pure_stats_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " pure_stats released)";
       not_yet_notified = false;	
     }
 
@@ -432,19 +485,21 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     // we should wait and try again later.
 
     while(!root_is_queued) {
-      if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread 0 about to aquire a shared lock nodes_mutex_ in order to read root";
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 about to aquire a shared lock nodes_mutex_ in order to read root";
       nodes_mutex_.lock_shared(); // only needed to read GetNumEdges(), SetAuxEngineMove(0xfffe) is already protected by search_stats_->auxengine_mutex_.lock();
-      if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread 0 aquired a shared lock nodes_mutex_ in order to read root";      
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread 0 aquired a shared lock nodes_mutex_ in order to read root";      
       if(root_node_->GetNumEdges() > 0){
 	// root is extended.
 	nodes_mutex_.unlock_shared(); // unlock the read-lock on noodes.
-	
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << "nodes_mutex released)";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " aquire auxengine_)";
 	search_stats_->auxengine_mutex_.lock();
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_ aquire )";
 	root_node_->SetAuxEngineMove(0xfffe); // mark root as pending and queue it
 	// Also set AuxEngineTime which is protected by the same lock
 	search_stats_->AuxEngineTime = params_.GetAuxEngineTime();
 	search_stats_->auxengine_mutex_.unlock();
-
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread " << our_index << " auxengine_ released.)";
 	if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "AuxEngineWorker() thread 0 found edges on root, allowed other threads to enter their main loop by setting initial_purge_run, and, finally, released shared lock nodes_mutex_.";
 	// always throw root at thread 0, even if there is no special root explorer, ie if params_.GetAuxEngineOptionsOnRoot().empty()
 	root_is_queued = true;
@@ -467,56 +522,64 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       if (stop_.load(std::memory_order_acquire)) break;
       bool initial_purge_run;
       {
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread " << our_index << " trying to obtain a shared lock on search_stats_->pure_stats_mutex_.";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " trying to obtain a shared lock on search_stats_->pure_stats_mutex_.";
 	// SharedMutex::Lock lock(search_stats_->pure_stats_mutex_);	  
 	// std::shared_lock lock(search_stats_->pure_stats_mutex_);
 	std::unique_lock lock(search_stats_->pure_stats_mutex_);
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread " << our_index << " obtained a shared lock on search_stats_->pure_stats_mutex_.";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " obtained a shared lock on search_stats_->pure_stats_mutex_.";
 	initial_purge_run = search_stats_->initial_purge_run;
       }
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " implictly released a shared lock on search_stats_->pure_stats_mutex_.";
       if(!initial_purge_run) {
 	// search_stats_->pure_stats_mutex_.unlock();
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread " << our_index << " waiting for thread 0 to purge the queues and check that root has edges, will sleep in cycles of 10 ms until that happens or search is stopped.";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " waiting for thread 0 to purge the queues and check that root has edges, will sleep in cycles of 30 ms until that happens or search is stopped.";
 	using namespace std::chrono_literals;
 	std::this_thread::sleep_for(30ms);
       } else {
 	// // purge is done, just release the lock.
 	// search_stats_->pure_stats_mutex_.unlock();
 	// OK, we are good to go.
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker() thread: " << our_index << " ready to enter the main loop.";
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread: " << our_index << " ready to enter the main loop.";
 	not_yet_notified = false; // never check again.
       }
     }
 
     // You may only listen if you have this lock: auxengine_listen_mutex_ this way we avoid spurios awakenings.
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " aquire auxengine_listen";
     search_stats_->auxengine_listen_mutex_.lock();
-
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " auxengine_listen aquired";
+    
     // This is the main loop for in-tree helpers. Before trying to get locks to enter it, check if search has not already been stopped.
     if (stop_.load(std::memory_order_acquire)) {
-      // LOGFILE << "AuxWorker(), thread " << our_index << " breaking the main loop because search is (already) stopped.";
-      search_stats_->auxengine_listen_mutex_.unlock();	
+      // LOGFILE << " auxWorker(), thread " << our_index << " breaking the main loop because search is (already) stopped.";
+      search_stats_->auxengine_listen_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " auxengine_listen released";
       break;
     }
 
     {
-      MyLockGuard lock(search_stats_->auxengine_mutex_);
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " aquire auxengine_";
+      MyLockGuard lock(search_stats_->auxengine_mutex_);      
       // Wait until there's some work to compute.
-      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "AuxWorker(), thread " << our_index << " has the unique lock on auxengine_mutex_ waiting for work.";	
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << " auxWorker(), thread " << our_index << " has the unique lock on auxengine_mutex_ waiting for work.";	
       search_stats_->auxengine_cv_.wait(lock, [&] REQUIRES(search_stats_->auxengine_mutex_) { return stop_.load(std::memory_order_acquire) || !search_stats_->persistent_queue_of_nodes.empty(); });
       // at this point, the lock is released and aquired again, which is why we want the outer lock, without which another thread could intercept us here.
       if (stop_.load(std::memory_order_acquire)) {
 	search_stats_->auxengine_listen_mutex_.unlock();
-	break;
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " auxengine_ released, search stopped.";
+      break;
       }
-      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "AuxWorker(), thread " << our_index << " got work.";
+      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << " auxWorker(), thread " << our_index << " got work.";
       if (search_stats_->persistent_queue_of_nodes.size() > 0){
 	n = search_stats_->persistent_queue_of_nodes.front();
 	search_stats_->persistent_queue_of_nodes.pop();
       } else {
-	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWorker(), thread " << our_index << " someone robbed us on our node!";	  
+	if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << " auxWorker(), thread " << our_index << " someone robbed us on our node!";	  
       }
     } // implictly release the lock on search_stats_->auxengine_mutex_
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " auxengine_ implicitly released.";
     search_stats_->auxengine_listen_mutex_.unlock();
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " auxengine_listen explictly released.";
     DoAuxEngine(n, our_index);
   } // end of while loop
 
@@ -527,16 +590,19 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       search_stats_->thread_counter--;
       thread_counter = search_stats_->thread_counter;      
       search_stats_->pure_stats_mutex_.unlock();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " pure_stats released. We are not the first thread 0.";
     } else {
       // The normal scenario, need to grab the lock
       {
+	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " aquire pure_stats";
 	std::unique_lock lock(search_stats_->pure_stats_mutex_);
 	search_stats_->thread_counter--;
 	thread_counter = search_stats_->thread_counter;
       }
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "AuxEngineWorker() thread " << our_index << " pure_stats implictly released after having reduced the thread counter. Will now exit.";
     }
     if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxEngineWorker thread " << our_index << " done. The thread counter is now " << thread_counter;
-    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWorker(), thread " << our_index << " released the lock on pure_stats.";
+    if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << " auxWorker(), thread " << our_index << " released the lock on pure_stats.";
     // Almost always log the when the last thread exits.
     if(thread_counter == 0 && params_.GetAuxEngineVerbosity() >= 1) LOGFILE << "All AuxEngineWorker threads are now idle";
   }
@@ -713,10 +779,12 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     }
 
     // If thread 1, then find the divergent node compared to Leelas PV, and record a vector of moves up to that node.
+    // This seems to be a sensitive place, log entry and exit, to help spot more instances of crashes here.
+    
     if(thread == 1 && nodes_to_support > 500000){
       std::vector<Move> Leelas_PV;
       Node * divergent_node = root_node_;
-      
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 entering sensitive part of the program, wish me luck!";
       nodes_mutex_.lock_shared();
       for(long unsigned int i = 0; i < my_moves_from_the_white_side.size(); i++){
 	if(divergent_node->GetN() > 0){
@@ -747,7 +815,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 		    }
 		    // Reverse the order, need to be move to child from root at the beginning.
 		    std::reverse(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin(), search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.end());
-		    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Finised populating and reversing the vector vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_";
+		    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Finished populating and reversing the vector vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_";
 		  }
 		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
 		  break;
@@ -760,8 +828,8 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	// Leela agrees until a leaf
       }
       nodes_mutex_.unlock_shared();
+      if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 survived sensitive part of the program.";      
     }
-
 
     // Prepare autopilot and blunder vetoing START
     // before search_stats_->winning_threads_adjusted is set, accept changes in all directions.
@@ -1239,7 +1307,7 @@ void Search::AuxWait() NO_THREAD_SAFETY_ANALYSIS {
     auxengine_threads_.back().join();
     auxengine_threads_.pop_back();
   }
-  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWait finished shutting down AuxEngineWorker() threads.";
+  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << " auxWait finished shutting down AuxEngineWorker() threads.";
 
   // Clear the PV cache.
   search_stats_->my_pv_cache_mutex_.lock();
@@ -1390,7 +1458,7 @@ void Search::AuxWait() NO_THREAD_SAFETY_ANALYSIS {
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
   
-  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;
+  if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << " auxWait done search_stats_ at: " << &search_stats_;
 }
 
 }  // namespace lczero
