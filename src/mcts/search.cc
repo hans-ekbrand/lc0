@@ -273,11 +273,11 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   Move winning_move;
 
   if(stop_.load(std::memory_order_acquire)){  
-    search_stats_->best_move_candidates_mutex.lock();
+    search_stats_->best_move_candidates_mutex.lock_shared();
     stop_a_blunder = search_stats_->stop_a_blunder_;
     save_a_win = search_stats_->save_a_win_;
     winning_move = search_stats_->winning_move_;
-    search_stats_->best_move_candidates_mutex.unlock();
+    search_stats_->best_move_candidates_mutex.unlock_shared();
   }
   
   for (const auto& edge : edges) {
@@ -341,10 +341,10 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
     int depth = 0;
     bool notified_already = false;
     // If search is not stopped, check if the relevant part of Leelas PV has changed
-    search_stats_->best_move_candidates_mutex.lock();
+    search_stats_->best_move_candidates_mutex.lock_shared();
     std::vector<Move> local_copy_of_leelas_PV = search_stats_->Leelas_PV;
     int local_copy_of_PVs_diverge_at_depth = search_stats_->PVs_diverge_at_depth;
-    search_stats_->best_move_candidates_mutex.unlock();
+    search_stats_->best_move_candidates_mutex.unlock_shared();
     for (auto iter = edge; iter;
          iter = GetBestChildNoTemperature(iter.node(), depth), flip = !flip) {
       uci_info.pv.push_back(iter.GetMove(flip));

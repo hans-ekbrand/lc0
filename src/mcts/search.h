@@ -70,8 +70,8 @@ class Search {
     Mutex auxengine_listen_mutex_;
     Mutex auxengine_stopped_mutex_ ACQUIRED_AFTER(auxengine_mutex_);
     Mutex my_pv_cache_mutex_;
-    // SharedMutex best_move_candidates_mutex; For some reason this leads to a deadlock very early on.
-    Mutex best_move_candidates_mutex;
+    SharedMutex best_move_candidates_mutex; // For some reason this leads to a deadlock very early on.
+    // Mutex best_move_candidates_mutex;
     // std::shared_mutex best_move_candidates_mutex; //fails
     // std::mutex best_move_candidates_mutex; // works
     SharedMutex test_mutex_;

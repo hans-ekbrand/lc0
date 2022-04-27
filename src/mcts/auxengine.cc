@@ -1331,7 +1331,7 @@ void Search::AuxWait() NO_THREAD_SAFETY_ANALYSIS {
   search_stats_->AuxEngineQueueSizeAtMoveSelectionTime = search_stats_->persistent_queue_of_nodes.size();
   search_stats_->Total_number_of_nodes = root_node_->GetN() - search_stats_->Total_number_of_nodes;
   if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << search_stats_->AuxEngineQueueSizeAtMoveSelectionTime << " nodes left in the query queue at move selection time. Threshold used: " << search_stats_->AuxEngineThreshold;
-  int max_threshold = 1000000;
+  int max_threshold = 10000000;
   // Adjust the Threshold so there is always work to do, aim at a 100 - 200 nodes left in the queue at move selection time.
   if(search_stats_->AuxEngineQueueSizeAtMoveSelectionTime < 100){
     // Get more work, decrease the Threshold
