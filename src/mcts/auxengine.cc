@@ -733,7 +733,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
   // perhaps speed will be improved if we ignore the very short PVs?
   // const long unsigned int min_pv_size = 5;
   const long unsigned int min_pv_size = 6;
-  if (pv_moves.size() >= min_pv_size){
+  if (pv_moves.size() >= min_pv_size && nodes_to_support > 500000){
 
     // check if the PV is new
     std::ostringstream oss;
@@ -795,20 +795,25 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       nodes_mutex_.lock_shared();
       for(long unsigned int i = 0; i < my_moves_from_the_white_side.size(); i++){
 	if(divergent_node->GetN() > 0){
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 1";
 	  Leelas_PV.push_back(GetBestChildNoTemperature(divergent_node, 0).edge()->GetMove());
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 2";	  
 	  auto maybe_a_node = GetBestChildNoTemperature(divergent_node, 0);
 	  if(!maybe_a_node.HasNode()){
 	    LOGFILE << "No node here yet. Nothing to do";
 	    break;
 	  }
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 3";
 	  divergent_node = maybe_a_node.node();
 	  if(Leelas_PV[i].as_string() != my_moves_from_the_white_side[i].as_string()){
+	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 4";
 	    // find the node corresponding the helper recommended move
 	    for (auto& edge_and_node : divergent_node->GetParent()->Edges()){
 	      if(edge_and_node.GetMove().as_string() == my_moves_from_the_white_side[i].as_string()){
 		if(!edge_and_node.HasNode()){
 		  LOGFILE << "The helper recommendation at depth " << i << " does not have a node yet!";
 		} else {
+		  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Thread 1 found the node which corresponds to the helper recommendation in Leelas PV: " << my_moves_from_the_white_side[i].as_string() << " at depth " << i << ". About to set stuff.";
 		  divergent_node = edge_and_node.node();
 		  // Record the path to this node, and the node itself
 		  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();

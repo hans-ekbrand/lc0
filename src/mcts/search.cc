@@ -1833,6 +1833,7 @@ int CalculateCollisionsLeft(int64_t nodes, const SearchParams& params) {
 }  // namespace
 
 void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
+  LOGFILE << "GatherMinibatch2() called with " << number_of_nodes_already_added;
   // Total number of nodes to process.
   int minibatch_size = 0;
   int cur_n = 0;
@@ -1871,7 +1872,7 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
     // early exit from every batch since there is never another search thread to
     // be keeping the backend busy. Which would mean that threads=1 has a
     // massive nps drop.
-    if (thread_count > 1 && minibatch_size > 0 &&
+    if (thread_count > 1 && minibatch_size > 80 &&
         computation_->GetCacheMisses() > params_.GetIdlingMinimumWork() &&
         thread_count - search_->backend_waiting_counter_.load(
                            std::memory_order_relaxed) >
@@ -1888,6 +1889,8 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
       PickNodesToExtend(max_force_visits, true);
     } else {
       // Normal run
+      LOGFILE << "Will call PickNodesToExtend() with collision_limit=" << std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
+	  params_.GetMaxOutOfOrderEvals() - number_out_of_order_}) << " current minibatch size = " << (minibatch_size + number_of_nodes_already_added);
       PickNodesToExtend(
         std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
 	    params_.GetMaxOutOfOrderEvals() - number_out_of_order_}), false);
