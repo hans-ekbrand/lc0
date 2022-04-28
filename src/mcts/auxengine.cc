@@ -733,7 +733,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
   // perhaps speed will be improved if we ignore the very short PVs?
   // const long unsigned int min_pv_size = 5;
   const long unsigned int min_pv_size = 6;
-  if (pv_moves.size() >= min_pv_size && nodes_to_support > 500000){
+  if (pv_moves.size() >= min_pv_size && nodes_to_support > 50000){
 
     // check if the PV is new
     std::ostringstream oss;
