@@ -1414,7 +1414,7 @@ void SearchWorker::ExecuteOneIteration() {
   // 4. Run NN computation.
   RunNNComputation();
   search_->backend_waiting_counter_.fetch_add(-1, std::memory_order_relaxed);
-  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << std::this_thread::get_id() << " RunNNComputation() finished in ExecuteOneIteration().";
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << std::this_thread::get_id() << " RunNNComputation() finished in ExecuteOneIteration(), size of batch: " << minibatch_.size();
   
   // 5. Retrieve NN computations (and terminal values) into nodes.
   FetchMinibatchResults();
