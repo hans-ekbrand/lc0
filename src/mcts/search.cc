@@ -466,8 +466,11 @@ inline float GetFpu(const SearchParams& params, Node* node, bool is_root_node,
 }
 
 inline float ComputeCpuct(const SearchParams& params, uint32_t N,
-                          bool is_root_node) {
-  const float init = params.GetCpuct(is_root_node);
+                          bool is_root_node, int depth) {
+  // scale by depth so that for depth > 5 is cpuct lower than the parameter and for depth < 5 the cpuct is higher.
+  // Let the maximum range be from cpuct * 0.9 to cpuct * 1.4 for depth = 0 to depth = 30
+  // f(0) = 0.9, f(5) = 1, f(30) = 1.4
+  const float init = params.GetCpuct(is_root_node) * (0.908065 + depth * 0.01164516);
   const float k = params.GetCpuctFactor(is_root_node);
   const float base = params.GetCpuctBase(is_root_node);
   return init + (k ? k * FastLog((N + base) / base) : 0.0f);
@@ -481,7 +484,7 @@ std::vector<std::string> Search::GetVerboseStats(Node* node) const {
   const bool is_black_to_move = (played_history_.IsBlackToMove() == is_root);
   const float draw_score = GetDrawScore(is_odd_depth);
   const float fpu = GetFpu(params_, node, is_root, draw_score);
-  const float cpuct = ComputeCpuct(params_, node->GetN(), is_root);
+  const float cpuct = ComputeCpuct(params_, node->GetN(), is_root, 0); // depth 0 since this is root.
   const float U_coeff =
       cpuct * std::sqrt(std::max(node->GetChildrenVisits(), 1u));
   std::vector<EdgeAndNode> edges;
@@ -841,7 +844,7 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
   if (parent->GetN() == 0) return {};
   const bool is_odd_depth = (depth % 2) == 1;
   const float draw_score = GetDrawScore(is_odd_depth);
-  const bool select_move_by_q = params_.GetQBasedMoveSelection();
+  const bool select_move_by_q = params_.GetQBasedMoveSelection() && (stop_.load(std::memory_order_acquire) || parent->GetN() > 10000); // GetBestChildrenNoTemperature is called by GetBestChildNotTemperature(), which in turn is called by PreExtend..() To enhance performance only do the beta calculations when needed.
   const float beta_prior = pow(parent->GetN() + number_of_skipped_playouts, params_.GetMoveSelectionVisitsScalingPower());
   number_of_skipped_playouts = 0; // if search runs out of time, this is the correct number, and if search is stopped early this value will be overwritten.
   // Best child is selected using the following criteria:
@@ -1392,7 +1395,9 @@ void SearchWorker::ExecuteOneIteration() {
 
   if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << std::this_thread::get_id() << " PreExtendTreeAndFastTrackForNNEvaluation() finished in ExecuteOneIteration().";
   // 2. Gather minibatch.
-  int number_of_nodes_already_added = foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
+  // int number_of_nodes_already_added = foo->queue_of_vector_of_nodes_from_helper_added_by_this_thread.size();
+  // The above always returns 1, weird.
+  int number_of_nodes_already_added = minibatch_.size();
   GatherMinibatch2(number_of_nodes_already_added);
   
   task_count_.store(-1, std::memory_order_release);
@@ -1497,7 +1502,7 @@ void SearchWorker::PreExtendTreeAndFastTrackForNNEvaluation_inner(Node * my_node
       // already been queried, enqueue it, unless it is the same move as the helper suggests or depth is too high.
       int max_depth = 30;
       if(my_node->GetN() > 0 && ply < max_depth){
-      	const EdgeAndNode Leelas_favourite = search_->GetBestChildNoTemperature(my_node, ply); // is this safe, or does it change my_node?
+      	const EdgeAndNode Leelas_favourite = search_->GetBestChildNoTemperature(my_node, ply); // Does this hurt performance?
       	if(Leelas_favourite.edge() != edge.edge()){
       	  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Leelas favourite move: " << Leelas_favourite.GetMove(black_to_move).as_string() << " is not the same has the helper recommendation " << edge.GetMove(black_to_move).as_string();
       	  if(Leelas_favourite.HasNode()){
@@ -1800,6 +1805,7 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
       }
       
     } // end of while loop
+    if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "PreExtendTreeAndFastTrackForNNEvaluation: finished size of minibatch_ is " << minibatch_.size();
     search_->search_stats_->pure_stats_mutex_.unlock_shared();
   }
   search_->search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock(); // unlock
@@ -2381,7 +2387,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
         }
       }
 
-      const float cpuct = ComputeCpuct(params_, node->GetN(), is_root_node);
+      const float cpuct = ComputeCpuct(params_, node->GetN(), is_root_node, base_depth - 1);
       const float puct_mult =
           cpuct * std::sqrt(std::max(node->GetChildrenVisits(), 1u));
       int cache_filled_idx = -1;
@@ -2817,7 +2823,7 @@ int SearchWorker::PrefetchIntoCache(Node* node, int budget, bool is_odd_depth) {
   typedef std::pair<float, EdgeAndNode> ScoredEdge;
   std::vector<ScoredEdge> scores;
   const float cpuct =
-      ComputeCpuct(params_, node->GetN(), node == search_->root_node_);
+    ComputeCpuct(params_, node->GetN(), node == search_->root_node_, 5); // We don't have depth available here so just set depth=5 to get the normal cpuct value.
   const float puct_mult =
       cpuct * std::sqrt(std::max(node->GetChildrenVisits(), 1u));
   const float fpu =
@@ -2881,7 +2887,7 @@ int SearchWorker::PrefetchIntoCache(Node* node, int budget, bool is_odd_depth) {
 // 4. Run NN computation.
 // ~~~~~~~~~~~~~~~~~~~~~~
 void SearchWorker::RunNNComputation() {
-  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Size of batch: " << computation_->GetBatchSize();
+  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "RunNNComputation() Size of batch: " << computation_->GetBatchSize();
   computation_->ComputeBlocking(); }
 
 // 5. Retrieve NN computations (and terminal values) into nodes.
@@ -2999,13 +3005,6 @@ void SearchWorker::DoBackupUpdateSingleNode(
   uint32_t solid_threshold =
       static_cast<uint32_t>(params_.GetSolidTreeThreshold());
 
-  // calculate depth, so we know if we are minimizing or maximizing Q
-  int depth = 0;
-  for (Node *n = node, *p; n != search_->root_node_->GetParent(); n = p) {
-    p = n->GetParent();
-    depth++;
-  }
-  
   for (Node *n = node, *p; n != search_->root_node_->GetParent(); n = p) {
     p = n->GetParent();
 
@@ -3017,7 +3016,6 @@ void SearchWorker::DoBackupUpdateSingleNode(
       m = n->GetM();
     }
     n->FinalizeScoreUpdate(v, d, m, node_to_process.multivisit);
-    // n->CustomScoreUpdate(depth, v, d, m, node_to_process.multivisit);    
     if (n_to_fix > 0 && !n->IsTerminal()) {
       n->AdjustForTerminal(v_delta, d_delta, m_delta, n_to_fix);
     }
@@ -3075,12 +3073,8 @@ void SearchWorker::DoBackupUpdateSingleNode(
        // These last two conditions are rather expensive to evaluate, which is why they must come last
        params_.GetAuxEngineFile() != ""
        ){
-      // AuxMaybeEnqueueNode(n, 1);
       AuxMaybeEnqueueNode(n);      
     }
-
-    depth--;
-    
   }
   search_->total_playouts_ += node_to_process.multivisit;
   search_->cum_depth_ += node_to_process.depth * node_to_process.multivisit;
