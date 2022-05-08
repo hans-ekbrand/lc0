@@ -796,6 +796,15 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       for(long unsigned int i = 0; i < my_moves_from_the_white_side.size(); i++){
 	if(divergent_node->GetN() > 0){
 	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 1";
+	  if(divergent_node->IsTerminal()){
+	    LOGFILE << "Found terminal node in helpers PV, it will probably not have edges, breaking the for loop now";
+	    break;
+	  }
+	  const EdgeAndNode my_edge_and_node = GetBestChildNoTemperature(divergent_node, 0);
+	  if(my_edge_and_node.edge() == nullptr){
+	    LOGFILE << "Got a nullptr as edge from the edgeandnode returned by GetBestChildNoTemperature(), depth = " << i << " out of expected depth (size of PV): " << my_moves_from_the_white_side.size() << " will break to cancel the loop. This is weird since the parent has at least one visit, I expected it to have edges, but perhaps it is terminal?";
+	    break;
+	  }
 	  Leelas_PV.push_back(GetBestChildNoTemperature(divergent_node, 0).edge()->GetMove());
 	  if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "Debug 2";	  
 	  auto maybe_a_node = GetBestChildNoTemperature(divergent_node, 0);

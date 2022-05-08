@@ -1733,7 +1733,7 @@ const std::shared_ptr<Search::adjust_policy_stats> SearchWorker::PreExtendTreeAn
     
     while(search_->search_stats_->fast_track_extend_and_evaluate_queue_.size() > 0 &&
 	  search_->search_stats_->Number_of_nodes_added_by_AuxEngine - number_of_added_nodes_at_start < 100 && 
-	  number_of_PVs_added < 4 // don't drag the speed down.
+	  number_of_PVs_added < 1 // don't drag the speed down.
 	  ){
       // relase the lock, we only needed it to test if to continue or not
       search_->search_stats_->pure_stats_mutex_.unlock_shared();
