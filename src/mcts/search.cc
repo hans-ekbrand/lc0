@@ -371,7 +371,7 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  !notified_already && // so far the PV:s are identical
 	  params_.GetAuxEngineFile() != "" && // helper is activated
 	  local_copy_of_leelas_PV.size() > 0 && // There is already a PV
-	  int(local_copy_of_leelas_PV.size()) >= depth && // The old PV still has moves in it that we can compare with the current PV
+	  int(local_copy_of_leelas_PV.size()) > depth && // The old PV still has moves in it that we can compare with the current PV
 	  ! iter.node()->IsTerminal()){ // child is not terminal // why is that relevant? Is it because we don't want to start the helper on a terminal node?
 	if(iter.GetMove().as_string() != local_copy_of_leelas_PV[depth].as_string()){
 	  // Test for tread one, different distance from root is sufficient
@@ -379,7 +379,7 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  // Need to stop helper thread 1 and 2, since the first divergence is at a new distance from root.
 	    need_to_restart_thread_one = true;
 	    need_to_restart_thread_two = true;	    
-	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << local_copy_of_PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 1.";
+	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << local_copy_of_PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 1 and thread 2.";
 	    notified_already = true;
 	  }
 	  // Test for thread two: is current depth lower than or equal to the depth of the starting node for thread 2?
