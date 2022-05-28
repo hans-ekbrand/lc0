@@ -647,7 +647,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
   int pv_length = 1;
   int depth_reached = 0;
-  int nodes_to_support = 0;
+  long unsigned int nodes_to_support = 0;
   int max_pv_length = 99; // Dirty work around for too many levels of recursion.
   int eval;
   bool winning = false;
@@ -733,7 +733,8 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
   // perhaps speed will be improved if we ignore the very short PVs?
   // const long unsigned int min_pv_size = 5;
   const long unsigned int min_pv_size = 6;
-  if (pv_moves.size() >= min_pv_size && nodes_to_support > 50000){
+  const long unsigned int min_nodes_to_support = 10000;
+  if (pv_moves.size() >= min_pv_size && nodes_to_support >= min_nodes_to_support){
 
     // check if the PV is new
     std::ostringstream oss;
@@ -934,7 +935,12 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     if (params_.GetAuxEngineVerbosity() >= 5) LOGFILE << "Thread " << thread << ": Added a PV starting at depth " << depth << " with " << nodes_to_support  << " nodes to support it. Queue has size: " << size;
   } else {
     if(pv_moves.size() > 0){
-      if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it not of length " << min_pv_size << " or more. Actual size: " << pv_moves.size();
+      if(nodes_to_support < min_nodes_to_support){
+	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it has too few nodes to support it: " << nodes_to_support << " which is less than " << min_nodes_to_support;
+      }
+      if(pv_moves.size() < min_pv_size){
+	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it is shorter than" << min_pv_size << ". Actual size: " << pv_moves.size();
+      }
     }
   }
 }
@@ -1169,6 +1175,7 @@ void Search::DoAuxEngine(Node* n, int index){
   // 1. Only start the engines if we can aquire the auxengine_stopped_mutex
   // 2. Only send anything to the engines if we have aquired that mutex
 
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "locked auxengine_stopped_mutex_";  
   search_stats_->auxengine_stopped_mutex_.lock();  
   // Before starting, test if stop_ is set
   if (stop_.load(std::memory_order_acquire)) {
@@ -1206,6 +1213,7 @@ void Search::DoAuxEngine(Node* n, int index){
     search_stats_->auxengine_stopped_[index] = false;    
   }
   search_stats_->auxengine_stopped_mutex_.unlock();
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "unlocked auxengine_stopped_mutex_";
 
   std::string prev_line;
   std::string my_line;

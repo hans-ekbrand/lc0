@@ -70,7 +70,7 @@ class Search {
     Mutex auxengine_listen_mutex_;
     Mutex auxengine_stopped_mutex_ ACQUIRED_AFTER(auxengine_mutex_);
     Mutex my_pv_cache_mutex_;
-    SharedMutex best_move_candidates_mutex; // For some reason this leads to a deadlock very early on.
+    SharedMutex best_move_candidates_mutex; // For some reason this leads to a deadlock very early on. // is that comment obsolete by now?
     // Mutex best_move_candidates_mutex;
     // std::shared_mutex best_move_candidates_mutex; //fails
     // std::mutex best_move_candidates_mutex; // works
@@ -103,7 +103,7 @@ class Search {
     Node* Helpers_preferred_child_node_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_); // protected by search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_
     Node* Helpers_preferred_child_node_in_Leelas_PV_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
     std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
-    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_);
+    std::vector<Move> vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ GUARDED_BY(vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_); // This is guaranteed to be of length zero unless there exists both a first and a second divergence.
 
     std::vector<std::shared_ptr<boost::process::ipstream>> vector_of_ipstreams; // each pointer is only used by one thread, so no protection needed
     std::vector<std::shared_ptr<boost::process::child>> vector_of_children; // each pointer is only used by one thread, so no protection needed
