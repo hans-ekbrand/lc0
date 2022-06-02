@@ -374,9 +374,8 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  int(local_copy_of_leelas_PV.size()) > depth && // The old PV still has moves in it that we can compare with the current PV
 	  ! iter.node()->IsTerminal()){ // child is not terminal // why is that relevant? Is it because we don't want to start the helper on a terminal node?
 	if(iter.GetMove().as_string() != local_copy_of_leelas_PV[depth].as_string()){
-	  // Test for tread one, different distance from root is sufficient
-	  if(depth != local_copy_of_PVs_diverge_at_depth){
-	  // Need to stop helper thread 1 and 2, since the first divergence is at a new distance from root.
+	  if(depth <= local_copy_of_PVs_diverge_at_depth){
+	  // Need to stop helper thread 1 and 2, since the change in Leelas PV is at distance from root that is shorter or equal to the distance between root and the first divergence.
 	    need_to_restart_thread_one = true;
 	    need_to_restart_thread_two = true;	    
 	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << local_copy_of_PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 1 and thread 2.";
@@ -2145,8 +2144,9 @@ void SearchWorker::PickNodesToExtend(int collision_limit, bool override_cpuct) {
   if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "PickNodesToExtend() aquired a lock on nodes.";
   PickNodesToExtendTask(search_->root_node_, 0, collision_limit, empty_movelist,
                         &minibatch_, &main_workspace_, override_cpuct);
-  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "PickNodesToExtendTask() finished successfully.";  
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "PickNodesToExtendTask() finished successfully. Next WaitForTasks()";  
   WaitForTasks();
+  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "WaitForTasks() finished successfully";    
   for (int i = 0; i < static_cast<int>(picking_tasks_.size()); i++) {
     for (int j = 0; j < static_cast<int>(picking_tasks_[i].results.size());
          j++) {
