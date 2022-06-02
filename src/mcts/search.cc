@@ -287,6 +287,8 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   std::vector<Move> local_copy_of_leelas_PV = search_stats_->Leelas_PV;
   int local_copy_of_PVs_diverge_at_depth = search_stats_->PVs_diverge_at_depth;
   search_stats_->best_move_candidates_mutex.unlock_shared();
+  std::vector<Move> local_copy_of_leelas_new_PV;
+  int local_copy_of_PVs_diverge_at_new_depth;
   // change lock
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
   std::vector<Move> local_copy_of_vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;
@@ -357,7 +359,7 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
       uci_info.pv.push_back(iter.GetMove(flip));
       if (!iter.node()) break;  // Last edge was dangling, cannot continue.
 
-      // Thread one must be restarted if Leelas PV changed at a depth lower than local_copy_of_PVs_diverge_at_depth
+      // Thread one must be restarted if Leelas PV changed at a depth different than local_copy_of_PVs_diverge_at_depth
       // Thread two must be restarted if Leelas PV changed at a depth lower than local_copy_of_vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size()
       // TODO: optimise for the case of same depth: What if the change is at the same depth? If Leela now agrees with the helper => restart, if Leela still disagrees => do not restart
       
@@ -365,7 +367,8 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
       // If Leelas PV was A B C D and is now A B E F and the helpers PV is A B G H, then the distance is the same, and only thread 2 needs to be restarted.
       
       // If Leelas new PV instead is A B G I, then we also need to restart helper thread 1, distance from root is now higher than before.
-      // We can stop test for equal moves when we have encountered the first divergence. 
+      // We can stop test for equal moves when we have encountered the first divergence.
+      local_copy_of_leelas_new_PV.push_back(iter.GetMove()); // stored conditionally mirrored, so no flip here
       
       if (!stop_.load(std::memory_order_acquire) && // search is not stopped
 	  multipv == 1 && // prefered PV
@@ -377,15 +380,16 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
 	  int(local_copy_of_leelas_PV.size()) > depth && // The old PV still has moves in it that we can compare with the current PV
 	  ! iter.node()->IsTerminal()){ // child is not terminal // why is that relevant? Is it because we don't want to start the helper on a terminal node?
 	if(iter.GetMove().as_string() != local_copy_of_leelas_PV[depth].as_string()){
-	  if(depth < local_copy_of_PVs_diverge_at_depth){ // same depth and still disagreement does not require restart of thread one, but restart of thread two.
-	  // Need to stop helper thread 1 and 2, since the change in Leelas PV is at distance from root that is shorter or equal to the distance between root and the first divergence.
+	  if(depth != local_copy_of_PVs_diverge_at_depth){ // same depth and still disagreement does not require restart of thread one, but restart of thread two.
+	    // Need to stop helper thread 1 and 2, since the change in Leelas PV is at distance from root that is shorter or equal to the distance between root and the first divergence.
 	    need_to_restart_thread_one = true;
 	    need_to_restart_thread_two = true;	    
 	    if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current divergence depth=" << local_copy_of_PVs_diverge_at_depth << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 1 and thread 2.";
 	    notified_already = true;
+	    local_copy_of_PVs_diverge_at_new_depth = depth;
 	  }
 	  // Test for thread two: is current depth lower than or equal to the depth of the starting node for thread 2?
-	  if(int(local_copy_of_vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size()) >= depth){
+	  if(int(local_copy_of_vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size()) != depth){
 	    if(!need_to_restart_thread_one){
 	      need_to_restart_thread_two = true; // only change it if needed.
 	      if (params_.GetAuxEngineVerbosity() >= 3) LOGFILE << "Found a relevant change in Leelas PV at depth " << depth << ". Current second divergence depth=" << local_copy_of_vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() << " Current move: " << iter.GetMove().as_string() << " is different from old move: " << local_copy_of_leelas_PV[depth].as_string() << " will restart thread 2.";
@@ -398,6 +402,12 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
   }
 
   if(need_to_restart_thread_one || need_to_restart_thread_two){
+    // update Leelas PV
+    search_stats_->best_move_candidates_mutex.lock();
+    search_stats_->Leelas_PV = local_copy_of_leelas_new_PV;
+    search_stats_->PVs_diverge_at_depth = local_copy_of_PVs_diverge_at_new_depth;
+    search_stats_->best_move_candidates_mutex.unlock();
+    // Change lock and restart the helper threads.
     search_stats_->auxengine_stopped_mutex_.lock();
     if(need_to_restart_thread_one){
       if(!search_stats_->auxengine_stopped_[1]){
