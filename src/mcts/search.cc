@@ -2292,7 +2292,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       }
 
       // Just logging
-      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << centipawn_diff << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << centipawn_diff << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() << "the helpers perferred node has " << search_->search_stats_->Helpers_preferred_child_node_->GetN() << " visits.";
       if(params_.GetAuxEngineVerbosity() >= 4 && search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	 search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()) LOGFILE << std::max(1, orig_collision_limit - collision_limit) << " visits will be forced via the node where the helper diverges in Leelas PV, which happens at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
 
@@ -2308,6 +2308,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       // And now do the same for the Helpers recommended node in Leelas PV, if it exists.
       if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	   search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()){
+	if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "visits for the helpers preferred node in Leelas PV:" << search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_->GetN();
 	  picking_tasks_.emplace_back(
 		  search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_,
 		  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size(),
