@@ -1913,6 +1913,7 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
 
   while (minibatch_size < params_.GetMiniBatchSize() - number_of_nodes_already_added &&
          number_out_of_order_ < params_.GetMaxOutOfOrderEvals()) {
+
     // If there's something to process without touching slow neural net, do it.
     if (minibatch_size > 0 && computation_->GetCacheMisses() == 0) return;
 
@@ -1931,6 +1932,7 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
     }
 
     int new_start = static_cast<int>(minibatch_.size());
+    long unsigned int size_before_picking = new_start;
 
     if(iteration_counter == 0){
       // First run is a custom run which may override CPUCT and force visits into a specific line.
@@ -1940,7 +1942,7 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
     } else {
       // Normal run
       LOGFILE << "Will call PickNodesToExtend() with collision_limit=" << std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
-	  params_.GetMaxOutOfOrderEvals() - number_out_of_order_}) << " current minibatch size = " << (minibatch_size + number_of_nodes_already_added);
+	  params_.GetMaxOutOfOrderEvals() - number_out_of_order_}) << " current minibatch size = " << (minibatch_size + number_of_nodes_already_added) << " real minibatch_size is " << minibatch_.size();
       PickNodesToExtend(
         std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
 	    params_.GetMaxOutOfOrderEvals() - number_out_of_order_}), false);
@@ -1957,6 +1959,8 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
       ++non_collisions;
       ++minibatch_size;
     }
+
+    if (params_.GetAuxEngineVerbosity() >= 4 && iteration_counter == 1 && size_before_picking < minibatch_.size()) LOGFILE << "GatherMinibatch2() did add nodes with override cpuct = true and found " << non_collisions << " non_collisions out of " << minibatch_.size() - size_before_picking << " tested nodes";
 
     bool needs_wait = false;
     int ppt_start = new_start;
@@ -2168,6 +2172,7 @@ void SearchWorker::PickNodesToExtend(int collision_limit, bool override_cpuct) {
       minibatch_.emplace_back(std::move(picking_tasks_[i].results[j]));
     }
   }
+  if (override_cpuct && params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "PickNodesToExtendTask() moved results to minibatch, which is of size: " << minibatch_.size();  
 }
 
 void SearchWorker::EnsureNodeTwoFoldCorrectForDepth(Node* child_node,
@@ -2322,12 +2327,15 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
       if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ released.";
       return;
-    } else { // Helper does not think it is better any more
+    } else { // Helper does not think it is better
+      if (params_.GetAuxEngineVerbosity() >= 4){
+	if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0) LOGFILE << "The helper engine does not think the root explorers continuation (" << search_->search_stats_->helper_eval_of_helpers_preferred_child << ") is better than Leelas (" << search_->search_stats_->helper_eval_of_leelas_preferred_child << "), so not forcing any visits this batch.";
+	if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child == 0) LOGFILE << "The helper engine (thread 1) has not yet provided PV.";
+      }
+      // If it previously thought so, then change that now
       if(search_->search_stats_->helper_thinks_it_is_better){
 	search_->search_stats_->helper_thinks_it_is_better = false;
 	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine has changed it's mind and it does not think that the root explorers continuation is better than Leelas PV.";
-      } else {
-	if (params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine does not think the root explorers continuation is better than Leelas, so not forcing any visits this batch.";	
       }
       search_->search_stats_->best_move_candidates_mutex.unlock();
       if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() best_move_candidates released.";

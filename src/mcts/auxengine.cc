@@ -939,7 +939,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it has too few nodes to support it: " << nodes_to_support << " which is less than " << min_nodes_to_support;
       }
       if(pv_moves.size() < min_pv_size){
-	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it is shorter than" << min_pv_size << ". Actual size: " << pv_moves.size();
+	if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "Ignoring pv because it is shorter than " << min_pv_size << ". Actual size: " << pv_moves.size();
       }
     }
   }
