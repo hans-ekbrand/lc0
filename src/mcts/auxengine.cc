@@ -732,8 +732,8 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
   // Too short PV are probably not reliable (> 4 seems to suffice), too high bar can be bad with low values of AuxEngineTime
   // perhaps speed will be improved if we ignore the very short PVs?
   // const long unsigned int min_pv_size = 5;
-  const long unsigned int min_pv_size = 6;
-  const long unsigned int min_nodes_to_support = 10000;
+  const long unsigned int min_pv_size = 1;
+  const long unsigned int min_nodes_to_support = 10;
   if (pv_moves.size() >= min_pv_size && nodes_to_support >= min_nodes_to_support){
 
     // check if the PV is new
