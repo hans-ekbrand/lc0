@@ -2257,6 +2257,7 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_ aquired.";
 
       int depth = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() vector_of_moves_from_root_to_Helpers_preferred_child_node_size() read.";
       // scale the number of visits by some factor that corresponds to how acute it is that Leela learns what the helper thinks. The downside is that Leela will have fewer free visits to find out unexpected stuff.
       // highly acute is large diff and low depth of divergence.
       // SSS Test showed that relevance 1.0 is best with 18 threads on root. The stronger the helpers, the better a high relevance will perform. For a 64 threads system this is good (SSS). Lower ForceVisitsRatio if you want less.
@@ -2282,17 +2283,17 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       if(depth > 3 && centipawn_diff > depth){
         relevance = 0.5;
       }
-      orig_collision_limit = int(floor(orig_collision_limit * relevance));
+      orig_collision_limit = int(std::floor(orig_collision_limit * relevance));
       collision_limit = std::max(2, orig_collision_limit);
       // These can be the same. We assure they are different by requiring the first to be deeper/larger.
       if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	 search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()){
 	// The visits is to be shared on two paths, with at least 2 nodes to share into one node each.
-	collision_limit = std::max(2, int(floor(collision_limit * (1 - ratio_to_refutation))));
+	collision_limit = std::max(2, int(std::floor(collision_limit * (1 - ratio_to_refutation))));
       }
 
       // Just logging
-      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << centipawn_diff << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() << "the helpers perferred node has " << search_->search_stats_->Helpers_preferred_child_node_->GetN() << " visits.";
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "The helper engine thinks the root explorers preferred continuation is " << centipawn_diff << " centipawns better than Leelas, so forcing " << collision_limit << " visits via the node the helper prefers until further notice. The divergence is at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() << " the helper's preferred node has " << search_->search_stats_->Helpers_preferred_child_node_->GetN() << " visits.";
       if(params_.GetAuxEngineVerbosity() >= 4 && search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	 search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()) LOGFILE << std::max(1, orig_collision_limit - collision_limit) << " visits will be forced via the node where the helper diverges in Leelas PV, which happens at depth: " << search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
 
