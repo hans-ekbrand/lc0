@@ -2159,9 +2159,9 @@ void SearchWorker::PickNodesToExtend(int collision_limit, bool override_cpuct) {
   if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "PickNodesToExtend() aquired a lock on nodes.";
   PickNodesToExtendTask(search_->root_node_, 0, collision_limit, empty_movelist,
                         &minibatch_, &main_workspace_, override_cpuct);
-  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "PickNodesToExtendTask() finished successfully. Next WaitForTasks()";  
+  if (override_cpuct && params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "PickNodesToExtendTask() finished successfully. minibatch is of size: " << minibatch_.size() << " Next WaitForTasks()";
   WaitForTasks();
-  if (params_.GetAuxEngineVerbosity() >= 10) LOGFILE << "WaitForTasks() finished successfully";    
+  if (override_cpuct && params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "WaitForTasks() finished successfully, minibatch is of size: " << minibatch_.size();
   for (int i = 0; i < static_cast<int>(picking_tasks_.size()); i++) {
     for (int j = 0; j < static_cast<int>(picking_tasks_[i].results.size());
          j++) {
