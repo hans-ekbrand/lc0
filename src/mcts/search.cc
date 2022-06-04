@@ -2290,6 +2290,12 @@ void SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       }
       orig_collision_limit = int(std::floor(orig_collision_limit * relevance));
       collision_limit = std::max(2, orig_collision_limit);
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() about to read vector_of_moves_from_root_to_Helpers_preferred_child_node_size() .";
+      int a_size = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
+      int b_size = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
+      long unsigned int hpc_visits = search_->search_stats_->Helpers_preferred_child_node_->GetN(); // assume nodes shared lock
+      long unsigned int hpcb_visits = search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_->GetN();
+      if(params_.GetAuxEngineVerbosity() >= 4) LOGFILE << "SearchWorker::PickNodesToExtendTask() read finished.";      
       // These can be the same. We assure they are different by requiring the first to be deeper/larger.
       if(search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >
 	 search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size()){
