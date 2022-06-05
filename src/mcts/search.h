@@ -563,7 +563,7 @@ class SearchWorker {
   bool MaybeSetBounds(Node* p, float m, int* n_to_fix, float* v_delta,
                       float* d_delta, float* m_delta) const;
   void PickNodesToExtend(int collision_limit, bool override_cpuct);
-  void PickNodesToExtendTask(Node* starting_point, int collision_limit,
+  bool PickNodesToExtendTask(Node* starting_point, int collision_limit,
                              int base_depth,
                              const std::vector<Move>& moves_to_base,
                              std::vector<NodeToProcess>* receiver,
