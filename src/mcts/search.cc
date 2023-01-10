@@ -912,21 +912,21 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	      << " the node here has " << visits << " visits.";
       search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = minimax_pv;
       search_stats_->Leelas_minimax_PV_first_divergence_node = n;
-      // Also query the helper about this node, if not already done.
-      if(n->GetAuxEngineMove() == 0xffff &&
-	 !n->IsTerminal() &&
-	 n->HasChildren() &&
-	 // These last two conditions are rather expensive to evaluate, which is why they must come last
-	 params_.GetAuxEngineFile() != ""
-	 ){
-	LOGFILE << "Querying the helper about the first divergence in the minimax PV";
-	// note nested lock best_move_candidates and auxengine_mutex
-	search_stats_->auxengine_mutex_.lock();
-	search_stats_->persistent_queue_of_nodes.push(n);
-	auxengine_cv_.notify_one(); // unnecessary?
-	n->SetAuxEngineMove(0xfffe); // magic for pending. Lock needed here? Nah.	
-	search_stats_->auxengine_mutex_.unlock();
-      }
+      // // Also query the helper about this node, if not already done.
+      // if(n->GetAuxEngineMove() == 0xffff &&
+      // 	 !n->IsTerminal() &&
+      // 	 n->HasChildren() &&
+      // 	 // These last two conditions are rather expensive to evaluate, which is why they must come last
+      // 	 params_.GetAuxEngineFile() != ""
+      // 	 ){
+      // 	LOGFILE << "Querying the helper about the first divergence in the minimax PV";
+      // 	// note nested lock best_move_candidates and auxengine_mutex
+      // 	search_stats_->auxengine_mutex_.lock();
+      // 	search_stats_->persistent_queue_of_nodes.push(n);
+      // 	auxengine_cv_.notify_one(); // unnecessary?
+      // 	n->SetAuxEngineMove(0xfffe); // magic for pending. Lock needed here? Nah.	
+      // 	search_stats_->auxengine_mutex_.unlock();
+      // }
     }
   } else {
     if(search_stats_->vector_of_moves_from_root_to_first_minimax_divergence.size() > 0){
@@ -944,20 +944,20 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
       search_stats_->vector_of_moves_from_root_to_some_interesting_minimax_node = minimax_pv_explore_moves;
       search_stats_->Leelas_minimax_PV_some_interesting_node = some_interesting_node;
       // Also query the helper about this node, if not already done.
-      if(some_interesting_node->GetAuxEngineMove() == 0xffff &&
-	 !some_interesting_node->IsTerminal() &&
-	 some_interesting_node->HasChildren() &&
-	 // These last two conditions are rather expensive to evaluate, which is why they must come last
-	 params_.GetAuxEngineFile() != ""
-	 ){
-	LOGFILE << "Querying the helper about some_interesting_node in the minimax PV";
-	// note nested lock best_move_candidates and auxengine_mutex
-	search_stats_->auxengine_mutex_.lock();
-	search_stats_->persistent_queue_of_nodes.push(some_interesting_node);
-	auxengine_cv_.notify_one(); // unnecessary?
-	some_interesting_node->SetAuxEngineMove(0xfffe); // magic for pending. Lock needed here? Nah.
-	search_stats_->auxengine_mutex_.unlock();
-      }
+      // if(some_interesting_node->GetAuxEngineMove() == 0xffff &&
+      // 	 !some_interesting_node->IsTerminal() &&
+      // 	 some_interesting_node->HasChildren() &&
+      // 	 // These last two conditions are rather expensive to evaluate, which is why they must come last
+      // 	 params_.GetAuxEngineFile() != ""
+      // 	 ){
+      // 	LOGFILE << "Querying the helper about some_interesting_node in the minimax PV";
+      // 	note nested lock best_move_candidates and auxengine_mutex
+      // 	search_stats_->auxengine_mutex_.lock();
+      // 	search_stats_->persistent_queue_of_nodes.push(some_interesting_node);
+      // 	auxengine_cv_.notify_one(); // unnecessary?
+      // 	some_interesting_node->SetAuxEngineMove(0xfffe); // magic for pending. Lock needed here? Nah.
+      // 	search_stats_->auxengine_mutex_.unlock();
+      // }
     }
   } else {
     if(search_stats_->vector_of_moves_from_root_to_some_interesting_minimax_node.size() > 0){
