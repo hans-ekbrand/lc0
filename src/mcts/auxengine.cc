@@ -243,6 +243,15 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       search_stats_->winning_threads_adjusted = false;
       search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
       search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->Leelas_PV = {};
+      search_stats_->helper_PV = {};
+      search_stats_->helper_PV_from_instance_two_explore_moves = {};
+      search_stats_->helper_PV_from_instance_one_explore_moves = {};    
+      search_stats_->PVs_diverge_at_depth = 0;
+      search_stats_->helper_eval_of_root = 0;
+      search_stats_->helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->helper_eval_of_helpers_preferred_child = 0;
+
       // before unlocking, save data on number of threads
       int non_winning_number_of_threads = search_stats_->non_winning_root_threads_;
       search_stats_->best_move_candidates_mutex.unlock();
@@ -403,6 +412,84 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 		    << " PVs remain in the queue.";
 	}
 	search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+
+	// Also purge helper_PV if needed. (possibly also Leelas PV, because it will automatically be reconstructed)
+	// Is the valid_move the same as the first element in the PV(s)?
+	search_stats_->best_move_candidates_mutex.lock();
+	if(search_stats_->helper_PV.size() > 0){
+	  if(! (search_stats_->helper_PV[0] == valid_move)){
+	    LOGFILE << "Purging helper PV since the opponent did not play the anticipated move: " << search_stats_->helper_PV[0].as_string()
+		    << " (seen from white's perspective regardless of which side was actually to move). The opponent instead played the move: " << valid_move.as_string();
+	    search_stats_->helper_PV = {};
+	    search_stats_->helper_PV_from_instance_two_explore_moves = {};
+	    search_stats_->helper_PV_from_instance_one_explore_moves = {};
+
+	    // Change lock
+	    search_stats_->best_move_candidates_mutex.unlock();      
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+	    search_stats_->Helpers_preferred_child_node_ = nullptr;
+	    search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+	    // Change back lock
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+	    search_stats_->best_move_candidates_mutex.lock();
+	    
+	  } else {
+	    LOGFILE << "The helper PV is still relevant after the anticipated move: " << search_stats_->helper_PV[0].as_string()
+		    << " (seen from white's perspective regardless of which side was actually to move).";
+	    search_stats_->helper_PV.erase(search_stats_->helper_PV.begin());
+	    if(search_stats_->helper_PV_from_instance_two_explore_moves.size() > 0){
+	      search_stats_->helper_PV_from_instance_two_explore_moves.erase(search_stats_->helper_PV_from_instance_two_explore_moves.begin());
+	    }
+	    if(search_stats_->helper_PV_from_instance_one_explore_moves.size() > 0){
+	      search_stats_->helper_PV_from_instance_one_explore_moves.erase(search_stats_->helper_PV_from_instance_one_explore_moves.begin());
+	    }
+
+	    // Change lock
+	    search_stats_->best_move_candidates_mutex.unlock();      
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+	    if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
+	      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
+	    }
+	    if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0){
+	      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
+	    }
+	    // Change back lock
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+	    search_stats_->best_move_candidates_mutex.lock();
+	    
+	  }
+	}
+	if(search_stats_->Leelas_PV.size() > 0){
+	  if(! (search_stats_->Leelas_PV[0] == valid_move)){
+	    search_stats_->Leelas_PV = {};
+	    // If Leelas PV is now empty, then also clear the PV:s that depend on Leelas PV
+	    search_stats_->helper_PV_from_instance_two_explore_moves = {};
+	    search_stats_->helper_PV_from_instance_one_explore_moves = {};
+	    // Change lock
+	    search_stats_->best_move_candidates_mutex.unlock();      
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+	    search_stats_->Helpers_preferred_child_node_ = nullptr;
+	    search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+	    // Change back lock
+	    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+	    search_stats_->best_move_candidates_mutex.lock();
+	  } else {
+	    LOGFILE << "Leelas PV is still relevant after the anticipated move: " << search_stats_->Leelas_PV[0].as_string()
+		    << " (seen from white's perspective regardless of which side was actually to move).";
+	    search_stats_->Leelas_PV.erase(search_stats_->Leelas_PV.begin());
+	  }
+	}
+	
+	// For now, just purge the two minimax PVs
+	search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = {};
+	search_stats_->vector_of_moves_from_root_to_some_interesting_minimax_node = {};	
+	search_stats_->best_move_candidates_mutex.unlock();	
+	
+	
       } // end of needs_to_purge*
     } else {
       // We are not thread zero so just release the lock after we have increased the thread counter.
@@ -1515,11 +1602,90 @@ void Search::AuxWait() {
   }
   search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
 
-  // Reset the force visits vector.
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+  // Clear a set of global variables if they have become obsolete by the move we played
+  search_stats_->best_move_candidates_mutex.lock();
+  if(search_stats_->Leelas_PV.size() > 0){
+    // pop the first element and compare it with the move played,
+    // clear the vector they do not match.
+
+    // final_bestmove_ is not necessarily from white's point of view.
+    // but the first element of the PV is always from white's point of view.
+    Move m;
+    Move::ParseMove(&m, search_stats_->Leelas_PV[0].as_string(), played_history_.IsBlackToMove());
+    // m is now rotated if needed
+    if(! (m == final_bestmove_)){
+      LOGFILE << "Leelas PV made obsolete by the move actually played by Leela: " << final_bestmove_.as_string() << ". Leelas PV contained the move: " << m.as_string();
+      search_stats_->Leelas_PV = {};
+      // Everything depends on Leelas PV, so if that is changed, reset all, except the helper PV, which can still be relevant, and is needed to find the divergence when next search starts.
+      search_stats_->helper_PV_from_instance_two_explore_moves = {};
+      search_stats_->helper_PV_from_instance_one_explore_moves = {};    
+      search_stats_->PVs_diverge_at_depth = 0;
+      search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
+      search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->helper_eval_of_root = 0;
+      search_stats_->helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->helper_eval_of_helpers_preferred_child = 0;
+    } else {
+      search_stats_->Leelas_PV.erase(search_stats_->Leelas_PV.begin());
+    }
+  }
+  // Do the same but for the helper's PV
+  if(search_stats_->helper_PV.size() > 0){
+    Move m;
+    Move::ParseMove(&m, search_stats_->helper_PV[0].as_string(), played_history_.IsBlackToMove());
+    if(! (m == final_bestmove_)){
+      LOGFILE << "Helper PV made obsolete by the move played by Leela: " << final_bestmove_.as_string() << ". Helper PV contained the move: " << m.as_string();
+      search_stats_->helper_PV = {};
+      search_stats_->PVs_diverge_at_depth = 0;
+      search_stats_->helper_eval_of_root = 0;
+      search_stats_->helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->helper_eval_of_helpers_preferred_child = 0;
+      search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
+      search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
+      search_stats_->helper_PV_from_instance_two_explore_moves = {};
+      search_stats_->helper_PV_from_instance_one_explore_moves = {};
+      search_stats_->Leelas_minimax_PV_first_divergence_node = nullptr;
+      search_stats_->Leelas_minimax_PV_some_interesting_node = nullptr;
+
+      // Change lock
+      search_stats_->best_move_candidates_mutex.unlock();      
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+      search_stats_->Helpers_preferred_child_node_ = nullptr;
+      search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+      search_stats_->best_move_candidates_mutex.lock();
+	
+    } else {
+      // remove the first element
+      LOGFILE << "Helper PV still relevant after Leelas move: " << final_bestmove_.as_string() << ". Helper PV contained the move: " << m.as_string();
+      search_stats_->helper_PV.erase(search_stats_->helper_PV.begin());
+      if(search_stats_->helper_PV_from_instance_two_explore_moves.size() > 0){
+	search_stats_->helper_PV_from_instance_two_explore_moves.erase(
+			  search_stats_->helper_PV_from_instance_two_explore_moves.begin());
+      }
+      if(search_stats_->helper_PV_from_instance_one_explore_moves.size() > 0){
+      search_stats_->helper_PV_from_instance_one_explore_moves.erase(
+			  search_stats_->helper_PV_from_instance_one_explore_moves.begin());
+      }
+
+      // Change lock
+      search_stats_->best_move_candidates_mutex.unlock();      
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
+      if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0){
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
+      }
+      if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0){
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
+      }
+      // Change back lock
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+      search_stats_->best_move_candidates_mutex.lock();
+      
+    }
+  }
+  search_stats_->best_move_candidates_mutex.unlock();  
 
   if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;
 }

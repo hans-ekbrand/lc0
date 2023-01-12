@@ -180,17 +180,17 @@ Search::Search(const NodeTree& tree, Network* network,
                              std::memory_order_release);
   }
   search_stats_->best_move_candidates_mutex.lock();
-  search_stats_->Leelas_PV = {};
-  search_stats_->helper_PV = {};
-  search_stats_->helper_PV_from_instance_two_explore_moves = {};
-  search_stats_->helper_PV_from_instance_one_explore_moves = {};    
-  search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = {};
-  search_stats_->PVs_diverge_at_depth = 0;
-  search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
-  search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
-  search_stats_->helper_eval_of_root = 0;
-  search_stats_->helper_eval_of_leelas_preferred_child = 0;
-  search_stats_->helper_eval_of_helpers_preferred_child = 0;
+  // search_stats_->Leelas_PV = {};
+  // search_stats_->helper_PV = {};
+  // search_stats_->helper_PV_from_instance_two_explore_moves = {};
+  // search_stats_->helper_PV_from_instance_one_explore_moves = {};    
+  // search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = {};
+  // search_stats_->PVs_diverge_at_depth = 0;
+  // search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
+  // search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
+  // search_stats_->helper_eval_of_root = 0;
+  // search_stats_->helper_eval_of_leelas_preferred_child = 0;
+  // search_stats_->helper_eval_of_helpers_preferred_child = 0;
   search_stats_->thread_one_and_two_have_started = false;
   search_stats_->best_move_candidates_mutex.unlock();
   search_stats_->auxengine_mutex_.lock();
@@ -1018,15 +1018,14 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	     search_stats_->number_of_nodes_in_support_for_helper_eval_of_helpers_preferred_child > 1000000){
 	    if(
 	       // improve play
-	       // improve play in worse positions
-	       (search_stats_->helper_eval_of_leelas_preferred_child < -30 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 10) ||
-	       // improve play in better positions
-	       (search_stats_->helper_eval_of_leelas_preferred_child > 30 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 21) ||
-	       // save the win
+	       // slightly worse positions
+	       (search_stats_->helper_eval_of_leelas_preferred_child < -50 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 30) ||
+	       // slightly better positions
+	       (search_stats_->helper_eval_of_leelas_preferred_child > 50 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 30) ||
+	       // Todo rework this to SF:s new scale
+	       // clearly better, +110 save the win, keep above 110
 	       (search_stats_->helper_eval_of_root > 110 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
-	       
-	       // save the draw
-	       // 90 110
+	       // clearly worse, -90 
 	       (search_stats_->helper_eval_of_leelas_preferred_child < -90 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
 	       // save the win
 	       (search_stats_->helper_eval_of_root > 110 && search_stats_->helper_eval_of_helpers_preferred_child - search_stats_->helper_eval_of_leelas_preferred_child > 20) ||
@@ -2673,6 +2672,15 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  vector_of_moves_from_root_to_boosted_node = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_;
 	  Node* best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
 	  LOGFILE << "Depth: " << vector_of_moves_from_root_to_boosted_node.size() << " Visits for best child (cpuct=1): " << best_child->GetN() << " visits for boosted_node: " << boosted_node->GetN();
+	  // If not clearly worse boost this not until it gets as many visits as its best sibling.
+	  if(roughly_equal || !donate_visits){ // equal or clearly better
+	    if(boosted_node->GetN() + collision_limit <= best_child->GetN()){
+	      // OK to give all visits to this node, it will still not overcome its best sibling
+	      // spend at most the number of leaves in this sub-branch.
+	      collision_limit_one = std::min(collision_limit, static_cast<int32_t>(boosted_node->GetN() - boosted_node->GetNInFlight()));
+	    }
+	  }
+	  
 	  if(roughly_equal || donate_visits){
 	    // don't boost the node if it is already best child, On the other hand. use the fact the helper and Leela agrees up to this point to boost the _parent_ of this node a lot.
 	    if(boosted_node == best_child){
@@ -2693,7 +2701,9 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	    // Clearly better,
 	    if(boosted_node->GetN() > best_child->GetN() + collision_limit_one){
 	      // Continue to boost even when the node has more visits, but decrease the boost to let Leela have the final say.
-	      LOGFILE << "Case 1: Clearly better, even best child now (should not last for long, since best child means that the divergence will be detected further down the line).";
+	      LOGFILE << "Case 1: Clearly better, even best child now (should not last for long, since best child means that the divergence will be detected further down the line)."
+		      << " Best child: " << best_child->DebugString() << " node to boost: " << boosted_node->DebugString();
+	 
  	      // collision_limit_one = std::max(collision_limit * 1 / 3, static_cast<int>(std::floor(collision_limit * params_.GetAuxEngineForceVisitsRatio())));
 	      collision_limit_one = collision_limit * params_.GetAuxEngineForceVisitsRatio();
 	    }
