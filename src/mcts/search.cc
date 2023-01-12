@@ -180,17 +180,19 @@ Search::Search(const NodeTree& tree, Network* network,
                              std::memory_order_release);
   }
   search_stats_->best_move_candidates_mutex.lock();
-  // search_stats_->Leelas_PV = {};
+  // possible optimization START  
+  search_stats_->Leelas_PV = {};
   // search_stats_->helper_PV = {};
-  // search_stats_->helper_PV_from_instance_two_explore_moves = {};
-  // search_stats_->helper_PV_from_instance_one_explore_moves = {};    
-  // search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = {};
-  // search_stats_->PVs_diverge_at_depth = 0;
-  // search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
-  // search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
-  // search_stats_->helper_eval_of_root = 0;
-  // search_stats_->helper_eval_of_leelas_preferred_child = 0;
-  // search_stats_->helper_eval_of_helpers_preferred_child = 0;
+  search_stats_->helper_PV_from_instance_two_explore_moves = {};
+  search_stats_->helper_PV_from_instance_one_explore_moves = {};    
+  search_stats_->vector_of_moves_from_root_to_first_minimax_divergence = {};
+  search_stats_->PVs_diverge_at_depth = 0;
+  search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = 0;
+  search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = 0;
+  search_stats_->helper_eval_of_root = 0;
+  search_stats_->helper_eval_of_leelas_preferred_child = 0;
+  search_stats_->helper_eval_of_helpers_preferred_child = 0;
+  // possible optimization END
   search_stats_->thread_one_and_two_have_started = false;
   search_stats_->best_move_candidates_mutex.unlock();
   search_stats_->auxengine_mutex_.lock();
