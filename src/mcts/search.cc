@@ -797,8 +797,9 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	if(edge.HasNode() && edge.node()->GetN() > 0){	  
 	  instance_two_end_node = edge.node();
 	  // Where in the PV should we inject visits? Try at the last point where the parent has clearly more visits than the child
-	  if(instance_two_end_node->GetN() + params_.GetAuxEngineExplorationThreshold() < instance_two_end_node->GetParent()->GetN() &&
-	     !interesting_node_two_found){
+	  // if(instance_two_end_node->GetN() + params_.GetAuxEngineExplorationThreshold() < instance_two_end_node->GetParent()->GetN() &&
+	  //    !interesting_node_two_found){
+	  if(!interesting_node_two_found){ // go to the bottom of the helper's PV directly, use this with only few forced visits though, so that Leela can find interesting divergencies on the way down the tree.
 	    // Not yet at an interesting node
 	    helper_PV_from_instance_two_explore_moves.push_back(edge.GetMove());
 	    the_interesting_node_two = instance_two_end_node;
@@ -846,8 +847,9 @@ void Search::MaybeTriggerStop(const IterationStats& stats,
 	if(edge.HasNode() && edge.node()->GetN() > 0){	  
 	  instance_one_end_node = edge.node();
 	  // Where in the PV should we inject visits? Try at the last point where the parent has clearly more visits than the child.
-	  if(instance_one_end_node->GetN() + params_.GetAuxEngineExplorationThreshold() < instance_one_end_node->GetParent()->GetN() &&
-	     !interesting_node_one_found){
+	  // if(instance_one_end_node->GetN() + params_.GetAuxEngineExplorationThreshold() < instance_one_end_node->GetParent()->GetN() &&
+	  //    !interesting_node_one_found){
+	  if(!interesting_node_one_found){ // go to the bottom of the helper's PV directly, use this with only few forced visits though, so that Leela can find interesting divergencies on the way down the tree.
 	    // Not yet at an interesting node
 	    the_interesting_node_one = instance_one_end_node;	    
 	    helper_PV_from_instance_one_explore_moves.push_back(edge.GetMove());
