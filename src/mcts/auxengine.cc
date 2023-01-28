@@ -259,6 +259,12 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       search_stats_->Number_of_nodes_added_by_AuxEngine = 0;
       search_stats_->size_of_queue_at_start = 0;
 
+      // Also purge the entry points for forced visits
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+      search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+      search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+      search_stats_->Helpers_preferred_child_node_ = nullptr;
+
       search_stats_->New_Game = false;
 
       // change lock to purge queue of PVs
