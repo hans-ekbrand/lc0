@@ -411,6 +411,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
 
 	// Check the vectors from root to the helper's recommendations.
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();	
 	// 1 Helper's recommendation in Leelas PV
 	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0 &&
 	   valid_move == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0]){
@@ -422,7 +423,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Resetting the helper's recommendation in Leelas PV since this path is no longer current after the opponents move.";
 	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
 	  search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
-	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();		
+
 	}
 	// 2 Helper's recommendation (first divergence)
 	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0 &&
@@ -435,8 +436,9 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Resetting the helper's recommendation since this path is no longer current after the opponents move.";
 	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
 	  search_stats_->Helpers_preferred_child_node_ = nullptr;
-	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();		
 	}
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();		
+	
       } // end of needs_to_purge*
     } else {
       // We are not thread zero so just release the lock after we have increased the thread counter.
