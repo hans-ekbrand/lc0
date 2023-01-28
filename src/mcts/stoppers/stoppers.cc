@@ -337,7 +337,6 @@ bool SmartPruningStopper::ShouldStop(const IterationStats& stats,
       LOGFILE << "ratio evaluated/budgeted=" << nodes/(nodes + remaining_playouts) << " Accepted smart pruning since child with largest n: " <<
     	index_of_largest_n << ", which has " << my_largest_n << " visits also has highest Expected Q=" << expected_q[index_of_largest_n] << " (raw Q=" << stats.q[index_of_largest_n] << ", beta_prior=" << beta_prior << ") beta_prior=" << beta_prior << " beta_prior_base=" << beta_prior_base << " beta_prior_scaler=" << beta_prior_scaler << " nodes=" << nodes << " remaining playouts=" << remaining_playouts;
 
-      // LOGFILE << "Helper claims this move is best: " << search_->search_stats_->winning_move_.as_string();
     }
 
     LOGFILE << std::fixed << remaining_playouts

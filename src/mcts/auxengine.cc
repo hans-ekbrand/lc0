@@ -403,6 +403,30 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 		    << " PVs remain in the queue.";
 	}
 	search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
+
+	// Check the vectors from root to the helper's recommendations.
+	// 1 Helper's recommendation in Leelas PV
+	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0 &&
+	   valid_move == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0]){
+	  // erase the first move.
+	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
+	} else {
+	  // Reset it
+	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+	  search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();		
+	}
+	// 2 Helper's recommendation (first divergence)
+	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0 &&
+	   valid_move == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0]){
+	  // erase the first move.
+	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
+	} else {
+	  // Reset it
+	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+	  search_stats_->Helpers_preferred_child_node_ = nullptr;
+	search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();		
+	}
       } // end of needs_to_purge*
     } else {
       // We are not thread zero so just release the lock after we have increased the thread counter.
@@ -627,7 +651,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	}
 	search_stats_->best_move_candidates_mutex.unlock();	
       }
-      if(thread == 0 && depth == 0 && eval > 250) {
+      if(thread == 0 && depth == 0 && eval > 150) {
 	winning = true;
       }
     }
@@ -1515,11 +1539,41 @@ void Search::AuxWait() {
   }
   search_stats_->fast_track_extend_and_evaluate_queue_mutex_.unlock();
 
-  // Reset the force visits vector.
+  // Reset the force visits vector, if needed.
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
-  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+  if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3 ||
+     final_bestmove_.as_string() != search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0].as_string()
+     ){
+    if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3){    
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was to short to be relevant two plies further down.";
+    } else {
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was made obsolete by the move we just played.";
+    }
+    // Do we need to purge the helpers recommendation in Leelas PV too? It can be kept if the first divergence was at the root node.
+    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
+    // Also reset the node(s)
+    search_stats_->Helpers_preferred_child_node_ = nullptr;
+    // But keep the counters and the evals. Without them we can't decide whether or not to force visits.
+  }
+
+  // Treat the other line separately
+  if(final_bestmove_ == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0] &&
+     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() < 3){
+    if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation in Leelas PV since this path is still current.";
+    // Remove the first move.
+    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
+  } else {
+    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
+    search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
+    if(final_bestmove_ == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0]){
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Discarding the helper's recommendation in Leelas PV since this path is no longer current.";
+    }
+    if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() < 3){
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Discarding the helper's recommendation in Leelas PV since it is too short to relevant after next move by the opponent.";
+    }
+  }
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+  
 
   if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "AuxWait done search_stats_ at: " << &search_stats_;
 }
