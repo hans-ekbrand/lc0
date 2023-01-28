@@ -2276,6 +2276,10 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
   // If we had too many nodes out of order, also interrupt the iteration so
   // that search can exit.
 
+  search_->search_stats_->pure_stats_mutex_.lock(); // A shared lock would suffice here
+  bool initial_purge_run_local = search_->search_stats_->initial_purge_run;
+  search_->search_stats_->pure_stats_mutex_.unlock();    
+
   while (minibatch_size < params_.GetMiniBatchSize() - number_of_nodes_already_added &&
          number_out_of_order_ < params_.GetMaxOutOfOrderEvals()) {
     // If there's something to process without touching slow neural net, do it.
@@ -2297,7 +2301,7 @@ void SearchWorker::GatherMinibatch2(int number_of_nodes_already_added) {
 
     int new_start = static_cast<int>(minibatch_.size());
 
-    if(iteration_counter < 10){
+    if(iteration_counter < 10 && initial_purge_run_local){
       // First k runs are custom runs which may override CPUCT and force visits into a specific line.
       int max_force_visits = std::min({collisions_left, params_.GetMiniBatchSize() - number_of_nodes_already_added - minibatch_size,
 	  params_.GetMaxOutOfOrderEvals() - number_out_of_order_});
