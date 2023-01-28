@@ -1557,7 +1557,7 @@ void Search::AuxWait() {
   } else {
     // Could be kept, just erase the first move
     if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation since this path is still current and long enough.";
-    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_.begin());
+    search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
   }
 
   // Treat the other line separately
