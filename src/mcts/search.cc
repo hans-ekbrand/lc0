@@ -2681,6 +2681,9 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       // if(override_cpuct == 1){
 
       if(donate_visits){
+	if(search_->search_stats_->Helpers_preferred_child_node_ != nullptr){
+	  LOGFILE << "Cool situation, about to force visits even if the first divergence is obsolete now.";
+	}
 	  // // Do something useful with the information that both Leela and the helper agree up to the point of the second divergence. It should be rather low risk to boost that node, but no need to through ALL visits there.
 	  // // Potentially, this node is very deep, and the game may never end up in that state. Perhaps it is useful to express the amount of boosting to spend there relative to that nodes current number of visits?
 	  // // Say, std::min(std::max(2, 10% of its current visits), 50% of the available visits in this batch)?
