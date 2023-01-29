@@ -1557,7 +1557,7 @@ void Search::AuxWait() {
      final_bestmove_.as_string() != search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0].as_string()     
      ){
     if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3){    
-      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was to short to be relevant two plies further down.";
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was too short to be relevant two plies further down, it contained only " << search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() << " moves.";
     } else {
       if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was made obsolete by the move we just played.";
     }
@@ -1581,11 +1581,11 @@ void Search::AuxWait() {
   } else {
     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_ = {};
     search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ = nullptr;
-    if(final_bestmove_ == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0]){
+    if(!(final_bestmove_ == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0])){
       if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Discarding the helper's recommendation in Leelas PV since this path is no longer current.";
     }
     if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() < 3){
-      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Discarding the helper's recommendation in Leelas PV since it is too short to relevant after next move by the opponent.";
+      if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Discarding the helper's recommendation in Leelas PV since it is too short to be relevant after next move by the opponent, size: " << search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();
     }
   }
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
