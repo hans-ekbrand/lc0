@@ -2832,10 +2832,6 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	std::string why = "";
 	if(! (search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0)) why = why + " too few nodes in support of instance one " ;
 	if(! (search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ != nullptr)) why = why + " no second divergence node yet " ;
-	if(! (search_->search_stats_->Helpers_preferred_child_node_ != nullptr)) why = why + " no first divergence node yet " ;
-	if(search_->search_stats_->Helpers_preferred_child_node_ != nullptr && search_->search_stats_->Helpers_preferred_child_node_->GetN() == 0) why = why + " the first divergence as zero visits ";
-	if(! (search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0)) why = why + " zero sized vector to helper's preferred child " ;
-	if(! (search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0)) why = why + " zero sized vector to helper's preferred child in leelas pv " ;
 	LOGFILE << " Not forcing visits this batch because: " << why;
       }
     }
