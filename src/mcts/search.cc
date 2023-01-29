@@ -2685,7 +2685,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       // if(override_cpuct == 1){
 
       if(donate_visits){
-	if(search_->search_stats_->Helpers_preferred_child_node_ != nullptr){
+	if(search_->search_stats_->Helpers_preferred_child_node_ == nullptr){
 	  LOGFILE << "Cool situation, about to force visits even if the first divergence is obsolete now.";
 	}
 	  // // Do something useful with the information that both Leela and the helper agree up to the point of the second divergence. It should be rather low risk to boost that node, but no need to through ALL visits there.

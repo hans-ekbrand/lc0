@@ -416,7 +416,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0 &&
 	   valid_move == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0]){
 	  // erase the first move.
-	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation in Leelas PV since this path is still current after the opponents move.";	  
+	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation in Leelas PV since this path is still current after the opponents move, size before removing the first move: " << search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size();	  
 	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
 	} else {
 	  // Reset it
@@ -426,14 +426,17 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 
 	}
 	// 2 Helper's recommendation (first divergence)
-	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0 &&
+	if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 1 &&
 	   valid_move == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0]){
 	  // erase the first move.
-	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation since this path is still current after the opponents move.";	  	  
+	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation since this path is still current after the opponents move.";
 	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
 	} else {
 	  // Reset it
-	  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Resetting the helper's recommendation since this path is no longer current after the opponents move.";
+	  if (search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 1 &&
+	      params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Resetting the helper's recommendation since this path is no longer current after the opponents move.";
+	  if (search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() == 1 &&
+	      params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Resetting the helper's recommendation since this path is was too short. (This should never happen).";
 	  search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_ = {};
 	  search_stats_->Helpers_preferred_child_node_ = nullptr;
 	}
@@ -1570,7 +1573,7 @@ void Search::AuxWait() {
     // But keep the counters and the evals. Without them we can't decide whether or not to force visits.
   } else {
     // Could be kept, just erase the first move
-    if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation since this path is still current and long enough.";
+    if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation since this path is still current and long enough: " << search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size();
     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
   }
 
