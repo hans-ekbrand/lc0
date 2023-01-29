@@ -666,7 +666,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
 	}
 	search_stats_->best_move_candidates_mutex.unlock();	
       }
-      if(thread == 0 && depth == 0 && eval > 250) {
+      if(thread == 0 && depth == 0 && eval > 150) {
 	winning = true;
       }
     }
