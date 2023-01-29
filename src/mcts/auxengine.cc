@@ -1553,9 +1553,11 @@ void Search::AuxWait() {
 
   // Reset the force visits vector, if needed.
   search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock();
-  if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3 ||
-     final_bestmove_.as_string() != search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0].as_string()     
-     ){
+  // final_bestmove_ is not necessarily from white's point of view.
+  // but search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0] is always from white's point of view.
+  Move m;
+  Move::ParseMove(&m, search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_[0].as_string(), played_history_.IsBlackToMove());
+  if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3 || ! (m == final_bestmove_)){
     if(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() < 3){    
       if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Purging the helper's recommendation since it was too short to be relevant two plies further down, it contained only " << search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() << " moves.";
     } else {
@@ -1572,9 +1574,9 @@ void Search::AuxWait() {
     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.begin());
   }
 
-  // Treat the other line separately
-  if(final_bestmove_ == search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0] &&
-     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >= 3){
+  // Treat the other line separately, reuse m
+  Move::ParseMove(&m, search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_[0].as_string(), played_history_.IsBlackToMove());
+  if(m == final_bestmove_ && search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() >= 3){
     if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Keeping the helper's recommendation in Leelas PV since this path is still current.";
     // Remove the first move.
     search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.erase(search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.begin());
