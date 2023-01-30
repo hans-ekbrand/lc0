@@ -1256,12 +1256,14 @@ void Search::DoAuxEngine(Node* n, int index){
   }
 
   // In analysis mode, Leela can be given a FEN in which case we cannot supply the history of the position, which in turn means we have to give the helper a FEN too.
-  if(ChessBoard::kStartposBoard == my_board){
+  if(ChessBoard::kStartposBoard == played_history_.Starting().GetBoard()){
     s = "position startpos moves " + s;
   } else {
     PositionHistory ph = played_history_;
-    s = "position fen " + GetFen(ph.Last()) + " moves " + s;
+    s = "position fen " + GetFen(ph.Starting()) + " moves " + s;
   }
+
+  if (params_.GetAuxEngineVerbosity() >= 2) LOGFILE << "Sending this to the helper: " << s;
 
   // 1. Only start the engines if we can aquire the auxengine_stopped_mutex
   // 2. Only send anything to the engines if we have aquired that mutex
