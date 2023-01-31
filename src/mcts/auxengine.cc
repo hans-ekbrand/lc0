@@ -589,7 +589,6 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
   int max_pv_length = 99; // Dirty work around for too many levels of recursion.
   int eval;
   bool winning = false;
-  long unsigned int minimum_nodes_of_support = 50000;
 
   while(iss >> pv >> std::ws) {
     if (pv == "info"){
@@ -605,32 +604,6 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     }
     if (pv == "cp") {
       iss >> eval >> std::ws;
-      if(depth == 0 && nodes_to_support > minimum_nodes_of_support){
-	search_stats_->best_move_candidates_mutex.lock();
-	search_stats_->helper_eval_of_root = eval;
-	search_stats_->best_move_candidates_mutex.unlock();	
-      }
-      if(thread == 1 && nodes_to_support > minimum_nodes_of_support){ // assume thread 1 works with leelas preferred child where the PVs of Leela and the helper diverge.
-	search_stats_->best_move_candidates_mutex.lock();
-	if(eval_flip){
-	  search_stats_->helper_eval_of_leelas_preferred_child = eval;
-	} else {
-	  search_stats_->helper_eval_of_leelas_preferred_child = -eval;	  
-	}
-	search_stats_->best_move_candidates_mutex.unlock();	
-      }
-      if(thread == 2 && nodes_to_support > minimum_nodes_of_support){ // assume thread 1 works with leelas preferred child where the PVs of Leela and the helper diverge.
-	search_stats_->best_move_candidates_mutex.lock();
-	if(eval_flip){
-	  search_stats_->helper_eval_of_helpers_preferred_child = eval;
-	} else {
-	  search_stats_->helper_eval_of_helpers_preferred_child = -eval;	  
-	}
-	search_stats_->best_move_candidates_mutex.unlock();	
-      }
-      if(thread == 0 && depth == 0 && eval > 150) {
-	winning = true;
-      }
     }
     if (pv == "nodes") {
       // Figure out how many nodes this PV is based on.
@@ -668,6 +641,35 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     }
   }
 
+  long unsigned int minimum_nodes_of_support = 50000; // For the on-root-explorer instances only
+  
+  if(depth == 0 && nodes_to_support > minimum_nodes_of_support){
+    search_stats_->best_move_candidates_mutex.lock();
+    search_stats_->helper_eval_of_root = eval;
+    search_stats_->best_move_candidates_mutex.unlock();	
+  }
+  if(thread == 1 && nodes_to_support > minimum_nodes_of_support){ // assume thread 1 works with leelas preferred child where the PVs of Leela and the helper diverge.
+    search_stats_->best_move_candidates_mutex.lock();
+    if(eval_flip){
+      search_stats_->helper_eval_of_leelas_preferred_child = eval;
+    } else {
+      search_stats_->helper_eval_of_leelas_preferred_child = -eval;	  
+    }
+    search_stats_->best_move_candidates_mutex.unlock();	
+  }
+  if(thread == 2 && nodes_to_support > minimum_nodes_of_support){ // assume thread 1 works with leelas preferred child where the PVs of Leela and the helper diverge.
+    search_stats_->best_move_candidates_mutex.lock();
+    if(eval_flip){
+      search_stats_->helper_eval_of_helpers_preferred_child = eval;
+    } else {
+      search_stats_->helper_eval_of_helpers_preferred_child = -eval;	  
+    }
+    search_stats_->best_move_candidates_mutex.unlock();	
+  }
+  if(thread == 0 && depth == 0 && eval > 150 && nodes_to_support > 10000000) {
+    winning = true;
+  }
+  
   // Too short PV are probably not reliable (> 4 seems to suffice), too high bar can be bad with low values of AuxEngineTime
   // perhaps speed will be improved if we ignore the very short PVs?
   // const long unsigned int min_pv_size = 5;
@@ -799,7 +801,7 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     bool local_copy_thread_one_and_two_have_started = search_stats_->thread_one_and_two_have_started;
     search_stats_->best_move_candidates_mutex.unlock_shared();
 
-    if(thread < 3 && nodes_to_support > 5000){
+    if(thread < 3 && nodes_to_support > minimum_nodes_of_support){
       // show the PV from continuous helpers
       std::string debug_string_root;
       bool flip = played_history_.IsBlackToMove(); // only needed for printing moves nicely.      
@@ -929,18 +931,18 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
       }
     }
     // make sure the currently recommended move from the helper is available if it is needed when vetoing Leelas move. TODO change name from "winning" to "recommended".
-    if(thread == 0 && depth == 0){
+    if(thread == 0 && depth == 0 && nodes_to_support > minimum_nodes_of_support){
       search_stats_->best_move_candidates_mutex.lock();      
       search_stats_->number_of_nodes_in_support_for_helper_eval_of_root = nodes_to_support;
       search_stats_->winning_move_ = my_moves_from_the_white_side.front();
       search_stats_->best_move_candidates_mutex.unlock();      
     }
-    if(thread == 1 && depth > 0){ // assume thread 1 works with leelas preferred child at the first divergence.
+    if(thread == 1 && depth > 0 && nodes_to_support > minimum_nodes_of_support){ // assume thread 1 works with leelas preferred child at the first divergence.
       search_stats_->best_move_candidates_mutex.lock();
       search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child = nodes_to_support;
       search_stats_->best_move_candidates_mutex.unlock();    
     }
-    if(thread == 2 && depth > 0){ // assume thread 2 works with the helper's preferred child at the first divergence.
+    if(thread == 2 && depth > 0 && nodes_to_support > minimum_nodes_of_support){ // assume thread 2 works with the helper's preferred child at the first divergence.
       search_stats_->best_move_candidates_mutex.lock();
       search_stats_->number_of_nodes_in_support_for_helper_eval_of_helpers_preferred_child = nodes_to_support;
       search_stats_->best_move_candidates_mutex.unlock();    
