@@ -2752,7 +2752,17 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
 	    // if(boosted_node->GetN() > best_child->GetN() + collision_limit_one){
 	    // Continue to boost even when the node has more visits, but decrease the boost to let Leela have the final say.
-	    LOGFILE << "Case 1: Clearly better, even best child (or most visits) now. Stop boosting now.";
+	    if(boosted_node == best_child) {
+	      LOGFILE << "Case 1: Clearly better, even best child now. Stop boosting now. Visits for best child "
+		      << best_child->GetN() << " visits in flight for best child: " << best_child->GetNInFlight()
+		      << " visits for boosted node: " << boosted_node->GetN() << " visits in flight for boosted node: "
+		      << boosted_node->GetNInFlight();
+	    } else {
+	      LOGFILE << "Case 1: Clearly better, not best child but most visits. Stop boosting now. Visits for best child "
+		      << best_child->GetN() << " visits in flight for best child: " << best_child->GetNInFlight()
+		      << " visits for boosted node: " << boosted_node->GetN() << " visits in flight for boosted node: "
+		      << boosted_node->GetNInFlight();
+	    }
 	    collision_limit_one = 0;
 	    // collision_limit_one = std::max(collision_limit * 1 / 3, static_cast<int>(std::floor(collision_limit * params_.GetAuxEngineForceVisitsRatio())));
 	    // collision_limit_one = collision_limit * params_.GetAuxEngineForceVisitsRatio();
@@ -2797,7 +2807,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	}
 
 	// LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()	    
-	LOGFILE << "Second divergence is at depth: " << divergence_at_depth
+	LOGFILE << "Divergence is at depth: " << divergence_at_depth
 		<< " Forcing " << collision_limit_one << " visits at a node at depth "
 		<< vector_of_moves_from_root_to_boosted_node.size() << ", which has "
 		<< boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
