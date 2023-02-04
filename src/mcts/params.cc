@@ -520,7 +520,7 @@ void SearchParams::Populate(OptionsParser* options) {
   options->Add<StringOption>(kAuxEngineOptionsOnRootId) = "Threads=1;Hash=1024;Ponder=off";
   options->Add<IntOption>(kAuxEngineThresholdId, 2, 100000000) = 100000000;
   options->Add<IntOption>(kAuxEngineInstancesId, 1, 1024) = 4;
-  options->Add<IntOption>(kAuxEngineExplorationThresholdId, 2, 1000) = 5;
+  options->Add<IntOption>(kAuxEngineExplorationThresholdId, 2, 1000) = 2;
   options->Add<FloatOption>(kAuxEngineForceVisitsRatioId, 0, 1) = 0.25;
   options->Add<FloatOption>(kAuxEngineForceVisitsRatioMiniMaxId, 0, 1) = 0.00;
   options->Add<FloatOption>(kAuxEngineForceVisitsRatioInferiorLineId, 0, 1) = 0.04;
