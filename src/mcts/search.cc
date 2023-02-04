@@ -2687,6 +2687,8 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 
 	  // If this is root, then do not bother
 	boosted_node = search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_;
+	// boosted_node is changed, also change the limit to match visits-in-flight of the boosted node.
+	collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
 	if(boosted_node == search_->root_node_ || search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() == 0){
 	  collision_limit_one = 0;
 	  if(boosted_node == search_->root_node_){
