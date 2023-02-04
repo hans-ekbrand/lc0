@@ -2614,7 +2614,9 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
        search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ != nullptr &&
        search_->search_stats_->Helpers_preferred_child_node_ != nullptr &&
        search_->search_stats_->Helpers_preferred_child_node_->GetN() > 0 &&
-       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0       
+       search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_.size() > 0 &&
+       search_->search_stats_->helper_PV_from_instance_two_explore_node != nullptr &&
+       search_->search_stats_->helper_PV_from_instance_two_explore_moves.size() > 0
        ){
 
       int centipawn_diff = std::abs(search_->search_stats_->helper_eval_of_leelas_preferred_child - search_->search_stats_->helper_eval_of_helpers_preferred_child);
