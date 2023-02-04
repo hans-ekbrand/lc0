@@ -2610,6 +2610,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
     //    search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() > 0
     //    ){
     if(search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_leelas_preferred_child > 0 &&
+       search_->search_stats_->number_of_nodes_in_support_for_helper_eval_of_helpers_preferred_child > 0 &&
        search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_ != nullptr &&
        search_->search_stats_->Helpers_preferred_child_node_ != nullptr &&
        search_->search_stats_->Helpers_preferred_child_node_->GetN() > 0 &&
@@ -2670,138 +2671,157 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       int hard_max_minibatch_size = 980; // 1024 if you have enough RAM on the GPU.
 
       // Need to define three things: (1) boosted_node, (2) vector_of_moves_from_root_to_boosted_node (3) collision_limit_one (i.e. the number of visits to force)
-      // if(override_cpuct == 1){
-	boosted_node = search_->search_stats_->Helpers_preferred_child_node_;
-	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_;
+      boosted_node = search_->search_stats_->Helpers_preferred_child_node_;
+      vector_of_moves_from_root_to_boosted_node = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_;
+      int divergence_at_depth = vector_of_moves_from_root_to_boosted_node.size();
 
-	Node* best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
-	// collision_limit_one = collision_limit - boosted_node->GetNInFlight(); // This is the default
-	// collision_limit_one = 2 * collision_limit; // This is the default
-	// collision_limit_one = std::floor(1024 / std::max(1.0f, vector_of_moves_from_root_to_boosted_node.size() / 2.0f)); // Try to catch up fast.
-	collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
-	if(donate_visits){
+      Node* best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
+      collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
+      if(donate_visits){
 	  // collision_limit_one = 0;
 	  // // Do something useful with the information that both Leela and the helper agree up to the point of the second divergence. It should be rather low risk to boost that node, but no need to through ALL visits there.
 	  // // Potentially, this node is very deep, and the game may never end up in that state. Perhaps it is useful to express the amount of boosting to spend there relative to that nodes current number of visits?
 	  // // Say, std::min(std::max(2, 10% of its current visits), 50% of the available visits in this batch)?
 
 	  // If this is root, then do not bother
-	  boosted_node = search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_;
-	  if(boosted_node == search_->root_node_ || search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() == 0){
-	    collision_limit_one = 0;
-	    LOGFILE << "Anomaly detected: The second divergence is root node or the vector of moves up to it is of length zero.";
+	boosted_node = search_->search_stats_->Helpers_preferred_child_node_in_Leelas_PV_;
+	if(boosted_node == search_->root_node_ || search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size() == 0){
+	  collision_limit_one = 0;
+	  if(boosted_node == search_->root_node_){
+	    LOGFILE << "Anomaly detected: The second divergence is root node.";
 	  } else {
-	    // // Lets try something greedy!
-	    // collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), 1024 - boosted_node->GetNInFlight());
-	    // // The greedy approach isn't too bad, -13 Elo, but perhaps it is better to only make sure that the helper's recommendation gets as many visits as the best child?
-
-	    // Need to redefine best_child since we have changed boosted_node.
-	    vector_of_moves_from_root_to_boosted_node = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;	    
-	    best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
-
-	    // Copy code from `roughly_equal`
-	    if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
-	      if(boosted_node == best_child){
-		LOGFILE << "Second divergence: already best child, stop boosting here.";
-	      } else {
-		LOGFILE << "Second divergence: more visits but not yet best child, stop boosting here.";		
-	      }
-	      collision_limit_one = 0;
-	    }
-	    if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
-	      // Equal number of visits is OK, but not more
-	      if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
-		collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
-		LOGFILE << "Second divergence: Limiting the number of forced visits to match best child.";
-	      }
-	    }
-
+	    LOGFILE << "Anomaly detected: The vector of moves up to the second divergence is of length zero.";
 	  }
 	} else {
-	  // roughly equal or clearly better
-	  if(roughly_equal){
-	    // don't boost the node if it is already best child,
-	    // For some reason best_child is not always the child with highest N, which it should be. For now, check manually.
-	    if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
-	      if(boosted_node == best_child){
-		LOGFILE << "Case 1: not clearly better, already best child, stop boosting here.";
-	      } else {
-		LOGFILE << "Case 1: not clearly better, more visits but not yet best child, stop boosting here.";		
-	      }
-	      collision_limit_one = 0;
+	  // // Lets try something greedy!
+	  // collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), 1024 - boosted_node->GetNInFlight());
+	  // // The greedy approach isn't too bad, -13 Elo, but perhaps it is better to only make sure that the helper's recommendation gets as many visits as the best child?
+
+	  // Need to redefine best_child since we have changed boosted_node.
+	  vector_of_moves_from_root_to_boosted_node = search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_;	    
+	  best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
+
+	    // Copy code from `roughly_equal`
+	  if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
+	    if(boosted_node == best_child){
+	      LOGFILE << "Second divergence: already best child, stop boosting here.";
+	    } else {
+	      LOGFILE << "Second divergence: more visits but not yet best child, stop boosting here.";		
 	    }
-	    if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
+	    collision_limit_one = 0;
+	  }
+	  if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
 	      // Equal number of visits is OK, but not more
-	      if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
-		collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
-		LOGFILE << "Case 1: not clearly better Limiting the number of forced visits to match best child.";
-	      }
+	    if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
+	      collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
+	      LOGFILE << "Second divergence: Limiting the number of forced visits to match best child.";
 	    }
-	  } else {
+	  }
+	}
+	// Can we go to the end of this PV instead of the first node? For now we can at least to go "some interesting node".
+	boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_node;
+	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_moves;
+	// END OF DONATE VISITS
+	
+      } else {
+	  // roughly equal or clearly better
+	if(roughly_equal){
+	    // don't boost the node if it is already best child,
+	    // best_child is not always the child with highest N, when using QBasedMoveSelection
+	  if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
+	    if(boosted_node == best_child){
+	      LOGFILE << "Case 1: not clearly better, already best child, stop boosting here.";
+	    } else {
+	      LOGFILE << "Case 1: not clearly better, more visits but not yet best child, stop boosting here.";		
+	    }
+	    collision_limit_one = 0;
+	  }
+	  if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
+	      // Equal number of visits is OK, but not more
+	    if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
+	      collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
+	      LOGFILE << "Case 1: not clearly better Limiting the number of forced visits to match best child.";
+	    }
+	  }
+	} else {
 	    // Clearly better,
-	    if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
+	  if(boosted_node == best_child || boosted_node->GetN() + boosted_node->GetNInFlight() >= best_child->GetN() + best_child->GetNInFlight()){
 	    // if(boosted_node->GetN() > best_child->GetN() + collision_limit_one){
-	      // Continue to boost even when the node has more visits, but decrease the boost to let Leela have the final say.
-	      LOGFILE << "Case 1: Clearly better, even best child (or most visits) now.";
-	      // collision_limit_one = std::max(collision_limit * 1 / 3, static_cast<int>(std::floor(collision_limit * params_.GetAuxEngineForceVisitsRatio())));
-	      // collision_limit_one = collision_limit * params_.GetAuxEngineForceVisitsRatio();
-	      // keep the default, all visits go here.
-	    } else {
-	      LOGFILE << "Case 1: Clearly better, and not yet best child.";
-	    }
-	  }
-	}
-
-	if(collision_limit_one > 0){
-
-	  search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
-	  search_->search_stats_->best_move_candidates_mutex.unlock_shared();
-	  
-	  // This is irrelevant when boosting the second divergence
-	  if(donate_visits){
-	    if(vector_of_moves_from_root_to_boosted_node.size() == 0){
-	      LOGFILE << "This should never happen. Second divergence is at depth 1, so parent of that node is root, stop boosting here.";
-	    } else {
-	      LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()
-		      << " Forcing " << collision_limit_one << " visits at that node, which has "
-		      << boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
-	    }
+	    // Continue to boost even when the node has more visits, but decrease the boost to let Leela have the final say.
+	    LOGFILE << "Case 1: Clearly better, even best child (or most visits) now. Stop boosting now.";
+	    collision_limit_one = 0;
+	    // collision_limit_one = std::max(collision_limit * 1 / 3, static_cast<int>(std::floor(collision_limit * params_.GetAuxEngineForceVisitsRatio())));
+	    // collision_limit_one = collision_limit * params_.GetAuxEngineForceVisitsRatio();
+	    // keep the default, all visits go here.
 	  } else {
-	    if(boosted_node != best_child && boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
-	      LOGFILE << "Depth: " << vector_of_moves_from_root_to_boosted_node.size() << " Visits for best child (cpuct=1): "
-		      << best_child->GetN() << " visits for boosted_node: " << boosted_node->GetN()
-		      << " visits in flight for boosted node: " << boosted_node->GetNInFlight()
-		      << " collisions left: " << collision_limit;
-	    } else {
-	      LOGFILE << "Depth: " << vector_of_moves_from_root_to_boosted_node.size() << " Already best child, visits for boosted_node: " << boosted_node->GetN()
-		      << " visits in flight for boosted node: " << boosted_node->GetNInFlight() << " collisions left: " << collision_limit;
-	    }
+	    LOGFILE << "Case 1: Clearly better, and not yet best child.";
 	  }
-
-	  {
-
-	    Mutex::Lock lock(picking_tasks_mutex_);
-	    picking_tasks_.emplace_back(
-					boosted_node,
-					vector_of_moves_from_root_to_boosted_node.size(),
-					vector_of_moves_from_root_to_boosted_node,
-					collision_limit_one, probability_of_best_path, distance_from_best_path);
-	    task_count_.fetch_add(1, std::memory_order_acq_rel);
-	    task_added_.notify_all();
-	  }
-	  WaitForTasks();	  
-
-	  // Add a VisitInFlight for every non_collision
-	  for(Node * n = boosted_node; n != search_->root_node_; n = n->GetParent()){
-	    n->IncrementNInFlight(collision_limit_one);
-	  }
-	  // // The loop above stops just before root, so fix root too. // TODO fix this ugly off-by-one hack. (perhaps test for n != nullptr)
-	  search_->root_node_->IncrementNInFlight(collision_limit_one);
-	  return true;
-	} // End of collision_limit_one > 0
-	else {
-	  LOGFILE << " collision_limit for boosted node turned out to be zero.";
 	}
+	// So, collision_limit_one is now set appropriately by comparing the first node in this sub-tree with its best sibling.
+	// Now, change what node to actually boost from the first node in this branch to (1) some relevant node or (2) directly use the leaf in the helper's PV.
+	// First, try (1), mostly because for (2) we do not have the node yet (only the vector of moves).
+	boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_node;
+	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_moves;
+      }
+
+      if(collision_limit_one > 0){
+
+	search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.unlock();
+	search_->search_stats_->best_move_candidates_mutex.unlock_shared();
+	  
+	// This is irrelevant when boosting the second divergence
+	if(donate_visits){
+	  if(vector_of_moves_from_root_to_boosted_node.size() == 0){
+	    LOGFILE << "This should never happen. Second divergence is at depth 1, so parent of that node is root, stop boosting here.";
+	//   } else {
+	//     // LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()	    
+	//     LOGFILE << "Second divergence is at depth: " << divergence_at_depth
+	// 	    << " Forcing " << collision_limit_one << " visits at node at depth "
+	// 	    << vector_of_moves_from_root_to_boosted_node.size() << ", which has "
+	// 	    << boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
+	//   }
+	// } else {
+	//   if(boosted_node != best_child && boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
+	//     LOGFILE << "Depth: " << vector_of_moves_from_root_to_boosted_node.size() << " Visits for best child (cpuct=1): "
+	// 	    << best_child->GetN() << " visits for boosted_node: " << boosted_node->GetN()
+	// 	    << " visits in flight for boosted node: " << boosted_node->GetNInFlight()
+	// 	    << " collisions left: " << collision_limit;
+	//   } else {
+	//     LOGFILE << "Depth: " << vector_of_moves_from_root_to_boosted_node.size() << " Already best child, visits for boosted_node: " << boosted_node->GetN()
+	// 	    << " visits in flight for boosted node: " << boosted_node->GetNInFlight() << " collisions left: " << collision_limit;
+	  }
+	}
+
+	// LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()	    
+	LOGFILE << "Second divergence is at depth: " << divergence_at_depth
+		<< " Forcing " << collision_limit_one << " visits at a node at depth "
+		<< vector_of_moves_from_root_to_boosted_node.size() << ", which has "
+		<< boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
+
+	{
+
+	  Mutex::Lock lock(picking_tasks_mutex_);
+	  picking_tasks_.emplace_back(
+				      boosted_node,
+				      vector_of_moves_from_root_to_boosted_node.size(),
+				      vector_of_moves_from_root_to_boosted_node,
+				      collision_limit_one, probability_of_best_path, distance_from_best_path);
+	  task_count_.fetch_add(1, std::memory_order_acq_rel);
+	  task_added_.notify_all();
+	}
+	WaitForTasks();	  
+
+	// Add a VisitInFlight for every non_collision
+	for(Node * n = boosted_node; n != search_->root_node_; n = n->GetParent()){
+	  n->IncrementNInFlight(collision_limit_one);
+	}
+	// // The loop above stops just before root, so fix root too. // TODO fix this ugly off-by-one hack. (perhaps test for n != nullptr)
+	search_->root_node_->IncrementNInFlight(collision_limit_one);
+	return true;
+      } // End of collision_limit_one > 0
+      else {
+	LOGFILE << " collision_limit for boosted node turned out to be zero.";
+      }
     } else { // End of "no reason to enforce visits".
       // Don't spam the log when autopilot is on.
       if(override_cpuct == 1 && !search_->search_stats_->winning_){
