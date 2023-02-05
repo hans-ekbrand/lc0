@@ -2598,6 +2598,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
     // When/if the node to be boosted has as many visits as its competing sibling, stop boosting it, since Leela uses number of visits to decide "best child".
 
     int collision_limit_one; // the amount of visits we decide to use
+    int already_taken = params_.GetMiniBatchSize() - collision_limit; // When we decide to gather more nodes than the collision_limit, we have to take this into account in order not to overflow.
 
     search_->search_stats_->best_move_candidates_mutex.lock_shared(); // for _reading_ search_stats_->winning_ and others
     search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_mutex_.lock(); // for reading Helpers_preferred_child_node_ and vector_of_moves_from_root_to_Helpers_preferred_child_node_ and the other two.
@@ -2717,7 +2718,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
 	      // Equal number of visits is OK, but not more
 	    if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
-	      collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
+	      collision_limit_one = std::min(static_cast<uint32_t>(hard_max_minibatch_size - already_taken), best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1);
 	      LOGFILE << "Second divergence: Limiting the number of forced visits to match best child.";
 	    }
 	  }
@@ -2743,7 +2744,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  if(boosted_node->GetN() + boosted_node->GetNInFlight() + collision_limit_one > best_child->GetN() + best_child->GetNInFlight()){
 	      // Equal number of visits is OK, but not more
 	    if(boosted_node->GetN() + boosted_node->GetNInFlight() < best_child->GetN() + best_child->GetNInFlight()){
-	      collision_limit_one = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1;
+	      collision_limit_one = std::min(static_cast<uint32_t>(hard_max_minibatch_size - already_taken), best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight() - 1);
 	      LOGFILE << "Case 1: not clearly better Limiting the number of forced visits to match best child.";
 	    }
 	  }
@@ -2777,7 +2778,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_node;
 	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_moves;
 	// make sure we do not exceed the limit for the batch size
-	collision_limit_one = std::min(static_cast<uint32_t>(collision_limit_one), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
+	collision_limit_one = std::min(static_cast<uint32_t>(hard_max_minibatch_size - already_taken), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
       }
 
       if(collision_limit_one > 0){
@@ -2809,7 +2810,7 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	}
 
 	// LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()	    
-	LOGFILE << "Divergence is at depth: " << divergence_at_depth
+	LOGFILE << "Iteration nr: " << override_cpuct << ", Number of nodes already picked: " << already_taken << ". Divergence is at depth: " << divergence_at_depth
 		<< " Forcing " << collision_limit_one << " visits at a node at depth "
 		<< vector_of_moves_from_root_to_boosted_node.size() << ", which has "
 		<< boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
