@@ -2776,6 +2776,8 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	// First, try (1), mostly because for (2) we do not have the node yet (only the vector of moves).
 	boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_node;
 	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_two_explore_moves;
+	// make sure we do not exceed the limit for the batch size
+	collision_limit_one = std::min(static_cast<uint32_t>(collision_limit_one), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
       }
 
       if(collision_limit_one > 0){
