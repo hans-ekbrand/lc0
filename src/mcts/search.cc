@@ -2678,8 +2678,21 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
       int divergence_at_depth = vector_of_moves_from_root_to_boosted_node.size();
 
       Node* best_child = search_->GetBestChildNoTemperature(boosted_node->GetParent(), vector_of_moves_from_root_to_boosted_node.size()).node();
-      uint32_t visits_missing_to_be_equal = best_child->GetN() - boosted_node->GetN();
-      uint32_t visits_missing_to_be_equal_including_in_flight = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight();
+      bool best_child_has_more_visits = true;
+      uint32_t visits_missing_to_be_equal;
+      if(best_child->GetN() >= boosted_node->GetN()){
+	visits_missing_to_be_equal = best_child->GetN() - boosted_node->GetN();
+      } else {
+	visits_missing_to_be_equal = boosted_node->GetN() - best_child->GetN();
+	best_child_has_more_visits = false;
+      }
+      uint32_t visits_missing_to_be_equal_including_in_flight;      
+      if(best_child->GetN() + best_child->GetNInFlight() >= boosted_node->GetN() - boosted_node->GetNInFlight()){
+	visits_missing_to_be_equal_including_in_flight = best_child->GetN() + best_child->GetNInFlight() - boosted_node->GetN() - boosted_node->GetNInFlight();
+      } else {
+	visits_missing_to_be_equal_including_in_flight = boosted_node->GetN() - boosted_node->GetNInFlight() - best_child->GetN() + best_child->GetNInFlight();
+      }
+      
       collision_limit_one = std::max(static_cast<uint32_t>(collision_limit), hard_max_minibatch_size - boosted_node->GetNInFlight()); // Try to catch up fast.
       if(donate_visits){
 	  // collision_limit_one = 0;
@@ -2814,13 +2827,21 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	  }
 	}
 
-	// LOGFILE << "Second divergence is at depth: " << vector_of_moves_from_root_to_boosted_node.size()	    
-	LOGFILE << "Divergence is at depth: " << divergence_at_depth << " Visits missing before equality: "
-		<< visits_missing_to_be_equal << ", visits missing before equality including visits in flight: "
-		<< visits_missing_to_be_equal_including_in_flight
-		<< " Forcing " << collision_limit_one << " visits at a node at depth "
-		<< vector_of_moves_from_root_to_boosted_node.size() << ", which has "
-		<< boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
+	if(best_child_has_more_visits){
+	  LOGFILE << "Divergence is at depth: " << divergence_at_depth << " Visits missing before equality: "
+		  << visits_missing_to_be_equal << ", visits missing before equality including visits in flight: "
+		  << visits_missing_to_be_equal_including_in_flight
+		  << ". Forcing " << collision_limit_one << " visits at a node at depth "
+		  << vector_of_moves_from_root_to_boosted_node.size() << ", which has "
+		  << boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
+	} else {
+	  LOGFILE << "Divergence is at depth: " << divergence_at_depth << " Boosted node has "
+		  << visits_missing_to_be_equal << " more visits than best child. (when including visits in flight: "
+		  << visits_missing_to_be_equal_including_in_flight
+		  << "). Forcing " << collision_limit_one << " visits at a node at depth "
+		  << vector_of_moves_from_root_to_boosted_node.size() << ", which has "
+		  << boosted_node->GetN() << " visits and " << boosted_node->GetNInFlight() << " visits in flight.";
+	}
 
 	{
 
