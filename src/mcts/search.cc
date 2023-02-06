@@ -2724,9 +2724,15 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	    }
 	  }
 	}
-	// Can we go to the end of this PV instead of the first node? For now we can at least to go "some interesting node".
-	boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_node;
-	vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_moves;
+	// Can we go to the end of this PV instead of the first node?
+	// Yes, if only "some interesting node" is up-to-date, which we cannot know for sure, since it is only updated when a batch is finished, but the second divergence can change anytime.
+	// only try this if helper_PV_from_instance_one_explore_moves is long enough to be sane
+	if(search_->search_stats_->helper_PV_from_instance_one_explore_moves.size() > search_->search_stats_->vector_of_moves_from_root_to_Helpers_preferred_child_node_in_Leelas_PV_.size()){
+	  boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_node;
+	  vector_of_moves_from_root_to_boosted_node = search_->search_stats_->helper_PV_from_instance_one_explore_moves;
+	} else {
+	  LOGFILE << "The path to some interesting node after the second divergence was not longer than the path to the second divergence, while waiting for that to be redefined, boost the entry node";
+	}
 	// END OF DONATE VISITS
 	
       } else {
