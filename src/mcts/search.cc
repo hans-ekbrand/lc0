@@ -2864,9 +2864,6 @@ bool SearchWorker::PickNodesToExtendTask(Node* node, int base_depth,
 	search_->root_node_->IncrementNInFlight(collision_limit_one);
 	return true;
       } // End of collision_limit_one > 0
-      else {
-	LOGFILE << " collision_limit for boosted node turned out to be zero.";
-      }
     } else { // End of "no reason to enforce visits".
       // Don't spam the log when autopilot is on.
       if(override_cpuct == 1 && !search_->search_stats_->winning_){
