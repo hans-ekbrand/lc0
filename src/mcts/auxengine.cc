@@ -697,7 +697,8 @@ void Search::AuxEngineWorker() NO_THREAD_SAFETY_ANALYSIS {
     
     if (params_.GetAuxEngineVerbosity() >= 9){
       std::string debug_string;
-      bool flip = ! played_history_.IsBlackToMove(); // only needed for printing moves nicely.      
+      // Already defined at line 577 and modified at 638
+      // bool flip = ! played_history_.IsBlackToMove(); // only needed for printing moves nicely.      
       for(int i = 0; i < (int) my_moves_from_the_white_side.size(); i++){
 	debug_string = debug_string + Move(my_moves_from_the_white_side[i].as_string(), flip).as_string() + " ";
 	flip = ! flip;
@@ -1220,8 +1221,16 @@ void Search::DoAuxEngine(Node* n, int index){
     my_board.Mirror();
   }
 
-  if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "add position=" << s << " for the helper to explore";
-  s = "position startpos moves " + s;
+  // if (params_.GetAuxEngineVerbosity() >= 9) LOGFILE << "add position=" << s << " for the helper to explore";
+  // s = "position startpos moves " + s;
+
+  // In analysis mode, Leela can be given a FEN in which case we cannot supply the history of the position, which in turn means we have to give the helper a FEN too.
+  if(ChessBoard::kStartposBoard == my_board){
+    s = "position startpos moves " + s;
+  } else {
+    PositionHistory ph = played_history_;
+    s = "position fen " + GetFen(ph.Last()) + " moves " + s;
+  } 
   
   // 1. Only start the engines if we can aquire the auxengine_stopped_mutex
   // 2. Only send anything to the engines if we have aquired that mutex
