@@ -32,6 +32,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "utils/logging.h"
+
 namespace {
 // GetPieceAt returns the piece found at row, col on board or the null-char '\0'
 // in case no piece there.
@@ -89,21 +91,199 @@ GameResult operator-(const GameResult& res) {
                                         : res;
 }
 
+GameResult PositionHistory::ComputeGameResultRmobility() const {
+  // traverse the game history until the last move that reset the 50 ply move rule (pawn move or capture)
+  // find out which side first reached the highest goal that was reached, and what that goal was.
+  LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength();
+  struct {
+    long unsigned int number_of_legal_moves;
+    bool is_in_check;
+    bool white_is_best_player;
+  } best_goal;
+  best_goal.number_of_legal_moves = 10;
+  best_goal.is_in_check = false;
+  bool is_black_to_move = IsBlackToMove();
+  GameResult result = GameResult::DRAW;
+  uint8_t result_as_int;
+  for(int i = 1; i <= Last().GetRule50Ply(); i++){
+    // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
+    const auto& board = GetPositionAt(GetLength() - i - 1).GetBoard();
+    auto legal_moves = board.GenerateLegalMoves();
+    if(legal_moves.size() < 10 && legal_moves.size() <= best_goal.number_of_legal_moves){
+      best_goal.number_of_legal_moves = legal_moves.size();
+      best_goal.is_in_check = board.IsUnderCheck();
+      best_goal.white_is_best_player = ! is_black_to_move;
+      // This fits the order defined in position.h line 97
+      result_as_int = 1 + is_black_to_move * 2 * legal_moves.size() + ! is_black_to_move * 20 + ! is_black_to_move * 2 * (9 - legal_moves.size()) + ! board.IsUnderCheck();
+      LOGFILE << "result_as_int = " << +result_as_int;
+      result = static_cast<GameResult>(result_as_int);
+      if(best_goal.white_is_best_player){
+	if(best_goal.is_in_check){
+	  LOGFILE << "White reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " and in check at ply: " << positions_.size() - i;
+	} else {
+	  LOGFILE << "White reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " not in check at ply: " << positions_.size() - i;	  
+	}
+      } else {
+	if(best_goal.is_in_check){
+	  LOGFILE << "Black reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " and in check at ply: " << positions_.size() - i;
+	} else {
+	  LOGFILE << "Black reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " not in check at ply: " << positions_.size() - i;	  
+	}
+      }
+    }
+    // switch player for the next iteration
+    is_black_to_move = !is_black_to_move;
+  }
+  // Log the result to make sure I got this right, remove when convinced.
+  switch(result_as_int) {
+  case 1:
+    LOGFILE << "Result: black won by checkmate";
+    break;
+  case 2:
+    LOGFILE << "Result: black won by stalemate";
+    break;
+  case 3:
+    LOGFILE << "Result: black won by r-mobility G1.0";
+    break;
+  case 4:
+    LOGFILE << "Result: black won by r-mobility G1.5";
+    break;
+  case 5:
+    LOGFILE << "Result: black won by r-mobility G2.0";
+    break;
+  case 6:
+    LOGFILE << "Result: black won by r-mobility G2.5";
+    break;
+  case 7:
+    LOGFILE << "Result: black won by r-mobility G3.0";
+    break;
+  case 8:
+    LOGFILE << "Result: black won by r-mobility G3.5";
+    break;
+  case 9:
+    LOGFILE << "Result: black won by r-mobility G4.0";
+    break;
+  case 10:
+    LOGFILE << "Result: black won by r-mobility G4.5";
+    break;
+  case 11:
+    LOGFILE << "Result: black won by r-mobility G5.0";
+    break;
+  case 12:
+    LOGFILE << "Result: black won by r-mobility G5.5";
+    break;
+  case 13:
+    LOGFILE << "Result: black won by r-mobility G6.0";
+    break;
+  case 14:
+    LOGFILE << "Result: black won by r-mobility G6.5";
+    break;
+  case 15:
+    LOGFILE << "Result: black won by r-mobility G7.0";
+    break;
+  case 16:
+    LOGFILE << "Result: black won by r-mobility G7.5";
+    break;
+  case 17:
+    LOGFILE << "Result: black won by r-mobility G8.0";
+    break;
+  case 18:
+    LOGFILE << "Result: black won by r-mobility G8.5";
+    break;
+  case 19:
+    LOGFILE << "Result: black won by r-mobility G9.0";
+    break;
+  case 20:
+    LOGFILE << "Result: black won by r-mobility G9.5";
+    break;
+  case 21:
+    LOGFILE << "Result: draw";
+    break;
+  case 22:
+    LOGFILE << "Result: white won by stalemate";
+    break;
+  case 24:
+    LOGFILE << "Result: white won by r-mobility G1.0";
+    break;
+  case 25:
+    LOGFILE << "Result: white won by r-mobility G1.5";
+    break;
+  case 26:
+    LOGFILE << "Result: white won by r-mobility G2.0";
+    break;
+  case 27:
+    LOGFILE << "Result: white won by r-mobility G2.5";
+    break;
+  case 28:
+    LOGFILE << "Result: white won by r-mobility G3.0";
+    break;
+  case 29:
+    LOGFILE << "Result: white won by r-mobility G3.5";
+    break;
+  case 30:
+    LOGFILE << "Result: white won by r-mobility G4.0";
+    break;
+  case 31:
+    LOGFILE << "Result: white won by r-mobility G4.5";
+    break;
+  case 32:
+    LOGFILE << "Result: white won by r-mobility G5.0";
+    break;
+  case 33:
+    LOGFILE << "Result: white won by r-mobility G5.5";
+    break;
+  case 34:
+    LOGFILE << "Result: white won by r-mobility G6.0";
+    break;
+  case 35:
+    LOGFILE << "Result: white won by r-mobility G6.5";
+    break;
+  case 36:
+    LOGFILE << "Result: white won by r-mobility G7.0";
+    break;
+  case 37:
+    LOGFILE << "Result: white won by r-mobility G7.5";
+    break;
+  case 38:
+    LOGFILE << "Result: white won by r-mobility G8.0";
+    break;
+  case 39:
+    LOGFILE << "Result: white won by r-mobility G8.5";
+    break;
+  case 40:
+    LOGFILE << "Result: white won by r-mobility G9.0";
+    break;
+  case 41:
+    LOGFILE << "Result: white won by r-mobility G9.5";
+    break;
+  }
+  return result;
+}
+
 GameResult PositionHistory::ComputeGameResult() const {
   const auto& board = Last().GetBoard();
   auto legal_moves = board.GenerateLegalMoves();
   if (legal_moves.empty()) {
     if (board.IsUnderCheck()) {
       // Checkmate.
+      LOGFILE << "Result: won by checkmate";      
       return IsBlackToMove() ? GameResult::WHITE_WON : GameResult::BLACK_WON;
     }
     // Stalemate.
-    return GameResult::DRAW;
+    LOGFILE << "Result: won by stalemate";
+    return IsBlackToMove() ? GameResult::WHITE_STALEMATE : GameResult::BLACK_STALEMATE;
   }
 
-  if (!board.HasMatingMaterial()) return GameResult::DRAW;
-  if (Last().GetRule50Ply() >= 100) return GameResult::DRAW;
-  if (Last().GetRepetitions() >= 2) return GameResult::DRAW;
+  // if (!board.HasMatingMaterial()) return GameResult::DRAW;
+  if (Last().GetRule50Ply() >= 100) {
+    return ComputeGameResultRmobility();
+  }
+  // if (Last().GetRepetitions() >= 2) return GameResult::DRAW;
+  if (Last().GetRepetitions() >= 2) {
+    // LOGFILE << "Result: draw by repetitions";
+    // return GameResult::DRAW;
+    return ComputeGameResultRmobility();    
+  }
 
   return GameResult::UNDECIDED;
 }

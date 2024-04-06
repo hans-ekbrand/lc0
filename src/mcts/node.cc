@@ -296,7 +296,9 @@ void Node::SortEdges() {
 }
 
 void Node::MakeTerminal(GameResult result, float plies_left, Terminal type) {
-  if (type != Terminal::TwoFold) SetBounds(result, result);
+  // With Rmobility TwoFold does not imply wl_ == 0, so set bounds
+  // if (type != Terminal::TwoFold) SetBounds(result, result);
+  SetBounds(result, result);  
   terminal_type_ = type;
   m_ = plies_left;
   if (result == GameResult::DRAW) {
@@ -308,8 +310,128 @@ void Node::MakeTerminal(GameResult result, float plies_left, Terminal type) {
   } else if (result == GameResult::BLACK_WON) {
     wl_ = -1.0f;
     d_ = 0.0f;
-    // Terminal losses have no uncertainty and no reason for their U value to be
-    // comparable to another non-loss choice. Force this by clearing the policy.
+  } else if (result == GameResult::WHITE_STALEMATE) {
+    wl_ = 0.5;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G1_0) {
+    wl_ = 0.25f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G1_5) {
+    wl_ = 0.125f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G2_0) {
+    wl_ = 0.0625f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G2_5) {
+    wl_ = 0.03125f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G3_0) {
+    wl_ = 0.015625f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G3_5) {
+    wl_ = 0.0078125f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G4_0) {
+    wl_ = 0.00390625f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G4_5) {
+    wl_ = 0.001953125f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G5_0) {
+    wl_ = 0.0009765625f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G5_5) {
+    wl_ = 0.0004882812f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G6_0) {
+    wl_ = 0.0002441406f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G6_5) {
+    wl_ = 0.0001220703f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G7_0) {
+    wl_ = 0.00006103516f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G7_5) {
+    wl_ = 0.00003051758f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G8_0) {
+    wl_ = 0.00001525879f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G8_5) {
+    wl_ = 0.000007629395f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G9_0) {
+    wl_ = 0.000003814697f;
+    d_ = 0.0f;
+  } else if (result == GameResult::WHITE_G9_5) {
+    wl_ = 0.000001907349f;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_WON) {
+    wl_ = -1.0f;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_STALEMATE) {
+    wl_ = -0.5; // 0.75 * 2 - 1 = 0.5
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G1_0) {
+    wl_ = -0.25;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G1_5) {
+    wl_ = -0.125;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G2_0) {
+    wl_ = -0.0625;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G2_5) {
+    wl_ = -0.03125;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G3_0) {
+    wl_ = -0.015625;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G3_5) {
+    wl_ = -0.0078125;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G4_0) {
+    wl_ = -0.00390625;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G4_5) {
+    wl_ = -0.001953125;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G5_0) {
+    wl_ = -0.0009765625;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G5_5) {
+    wl_ = -0.0004882812;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G6_0) {
+    wl_ = -0.0002441406;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G6_5) {
+    wl_ = -0.0001220703;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G7_0) {
+    wl_ = -0.00006103516;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G7_5) {
+    wl_ = -0.00003051758;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G8_0) {
+    wl_ = -0.00001525879;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G8_5) {
+    wl_ = -0.000007629395;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G9_0) {
+    wl_ = -0.000003814697;
+    d_ = 0.0f;
+  } else if (result == GameResult::BLACK_G9_5) {
+    wl_ = -0.000001907349;
+    d_ = 0.0f;
+  }
+  // Terminal losses have no uncertainty and no reason for their U value to be
+  // comparable to another non-loss choice. Force this by clearing the policy.
+  if(static_cast<int>(result) < 21) {
+    // "black" or "other side" won.
     if (GetParent() != nullptr) GetOwnEdge()->SetP(0.0f);
   }
 }

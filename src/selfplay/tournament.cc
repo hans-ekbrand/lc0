@@ -420,10 +420,15 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     game_callback_(game_info);
 
     // Update tournament stats.
+    auto gameresult = game.GetGameResult();
+    LOGFILE << "in PlayOneGame() result_as_int = " << +static_cast<int>(gameresult);    
+    
     {
       Mutex::Lock lock(mutex_);
       int result = game.GetGameResult() == GameResult::DRAW        ? 1
-                   : game.GetGameResult() == GameResult::WHITE_WON ? 0
+                   // : game.GetGameResult() == GameResult::WHITE_WON ? 0
+                   //                                                 : 2;
+                   : static_cast<int>(game.GetGameResult()) > 21 ? 0
                                                                    : 2;
       if (player1_black) result = 2 - result;
       ++tournament_info_.results[result][player1_black ? 1 : 0];

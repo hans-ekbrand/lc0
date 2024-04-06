@@ -323,8 +323,8 @@ class Node {
   // Whether or not this node end game (with a winning of either sides or draw).
   Terminal terminal_type_ : 2;
   // Best and worst result for this node.
-  GameResult lower_bound_ : 2;
-  GameResult upper_bound_ : 2;
+  GameResult lower_bound_ : 6;
+  GameResult upper_bound_ : 6;
   // Whether the child_ is actually an array of equal length to edges.
   bool solid_children_ : 1;
 

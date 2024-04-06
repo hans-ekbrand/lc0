@@ -104,9 +104,55 @@ class ValueEvaluator : public Evaluator {
       } else if (result == GameResult::DRAW) {
         q = 0;
       } else {
+	LOGFILE << "in MakeBestMove, found a decisive result = " << static_cast<int>(result);      
         // A legal move to a non-drawn terminal without tablebases must be a
         // win.
-        q = 1;
+	//   q = 1;
+	// this assumes win => q == 1 which is not true for all wins in Rmobility.
+	// instead use a transformed version rmobility score as q 
+	// This is copy/paste from trainingdata.cc,
+	if (result == GameResult::WHITE_WON || result == GameResult::BLACK_WON) {
+	  q = 1;
+	} else if (result == GameResult::WHITE_STALEMATE || result == GameResult::BLACK_STALEMATE) {
+	  // for r-mobility the points in https://wiki.chessdom.org/R-Mobility#50-move_rule must be scaled to the range of q [-1, 1], which means multiply by 2, and then subtract 1
+	  q = 0.5; // 0.75 * 2 - 1 = 0.5
+	} else if (result == GameResult::WHITE_G1_0 || result == GameResult::BLACK_G1_0) {
+	  q = 0.25;
+	} else if (result == GameResult::WHITE_G1_5 || result == GameResult::BLACK_G1_5) {
+	  q = 0.125;
+	} else if (result == GameResult::WHITE_G2_0 || result == GameResult::BLACK_G2_0) {
+	  q = 0.0625;
+	} else if (result == GameResult::WHITE_G2_5 || result == GameResult::BLACK_G2_5) {
+	  q = 0.03125;
+	} else if (result == GameResult::WHITE_G3_0 || result == GameResult::BLACK_G3_0) {
+	  q = 0.015625;
+	} else if (result == GameResult::WHITE_G3_5 || result == GameResult::BLACK_G3_5) {
+	  q = 0.0078125;
+	} else if (result == GameResult::WHITE_G4_0 || result == GameResult::BLACK_G4_0) {
+	  q = 0.00390625;
+	} else if (result == GameResult::WHITE_G4_5 || result == GameResult::BLACK_G4_5) {
+	  q = 0.001953125;
+	} else if (result == GameResult::WHITE_G5_0 || result == GameResult::BLACK_G5_0) {
+	  q = 0.0009765625;
+	} else if (result == GameResult::WHITE_G5_5 || result == GameResult::BLACK_G5_5) {
+	  q = 0.0004882812;
+	} else if (result == GameResult::WHITE_G6_0 || result == GameResult::BLACK_G6_0) {
+	  q = 0.0002441406;
+	} else if (result == GameResult::WHITE_G6_5 || result == GameResult::BLACK_G6_5) {
+	  q = 0.0001220703;
+	} else if (result == GameResult::WHITE_G7_0 || result == GameResult::BLACK_G7_0) {
+	  q = 0.00006103516;
+	} else if (result == GameResult::WHITE_G7_5 || result == GameResult::BLACK_G7_5) {
+	  q = 0.00003051758;
+	} else if (result == GameResult::WHITE_G8_0 || result == GameResult::BLACK_G8_0) {
+	  q = 0.00001525879;
+	} else if (result == GameResult::WHITE_G8_5 || result == GameResult::BLACK_G8_5) {
+	  q = 0.000007629395;
+	} else if (result == GameResult::WHITE_G9_0 || result == GameResult::BLACK_G9_0) {
+	  q = 0.000003814697;
+	} else if (result == GameResult::WHITE_G9_5 || result == GameResult::BLACK_G9_5) {
+	  q = 0.000001907349;
+	}
       }
       if (q >= max_q) {
         max_q = q;
@@ -184,6 +230,8 @@ void MultiSelfPlayGames::Play() {
                 results_[i] = tb_side_black ? GameResult::WHITE_WON
                                             : GameResult::BLACK_WON;
               } else {  // Cursed wins and blessed losses count as draws.
+		// Rmobility TODO, no TB win does not imply draw for Rmobility
+		// do we *have* to set results_[i] or can we just not do it?
                 results_[i] = GameResult::DRAW;
               }
               continue;
