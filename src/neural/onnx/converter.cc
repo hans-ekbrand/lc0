@@ -521,7 +521,7 @@ std::string Converter::MakeEncoderLayer(
     OnnxBuilder* builder, const MultiHeadWeights::EncoderLayer& layer,
     int embedding_size, int heads, const std::string& encoder_in,
     const std::string& name, ActivationFunction activation, float alpha) {
-  const int d_model = layer.mha.q_b.size();
+  const int d_model = layer.mha.q_w.size() / embedding_size;
   const int depth = d_model / heads;
 
   auto mha_shape =

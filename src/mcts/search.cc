@@ -1945,7 +1945,8 @@ void SearchWorker::ExtendNode(Node* node, int depth,
     if (board.IsUnderCheck()) {
       node->MakeTerminal(GameResult::WHITE_WON);
     } else {
-      node->MakeTerminal(GameResult::DRAW);
+      // node->MakeTerminal(GameResult::DRAW);
+      node->MakeTerminal(GameResult::WHITE_STALEMATE);      
     }
     return;
   }
@@ -1953,13 +1954,15 @@ void SearchWorker::ExtendNode(Node* node, int depth,
   // We can shortcircuit these draws-by-rule only if they aren't root;
   // if they are root, then thinking about them is the point.
   if (node != search_->root_node_) {
-    if (!board.HasMatingMaterial()) {
-      node->MakeTerminal(GameResult::DRAW);
-      return;
-    }
+    // if (!board.HasMatingMaterial()) {
+    //   node->MakeTerminal(GameResult::DRAW);
+    //   return;
+    // }
 
     if (history->Last().GetRule50Ply() >= 100) {
-      node->MakeTerminal(GameResult::DRAW);
+      // node->MakeTerminal(GameResult::DRAW);      
+      // Calculate the r-mobility score and assign that value to the node.
+      node->MakeTerminal(history->ComputeGameResult());
       return;
     }
 
@@ -1967,14 +1970,17 @@ void SearchWorker::ExtendNode(Node* node, int depth,
     // Mark two-fold repetitions as draws according to settings.
     // Depth starts with 1 at root, so number of plies in PV is depth - 1.
     if (repetitions >= 2) {
-      node->MakeTerminal(GameResult::DRAW);
+      // node->MakeTerminal(GameResult::DRAW);
+      // I read the r-mobility definition to imply that repeats does not implies a draw,
+      // r-mobility scores shall allways be calculated.
+      node->MakeTerminal(history->ComputeGameResult());      
       return;
     } else if (repetitions == 1 && depth - 1 >= 4 &&
                params_.GetTwoFoldDraws() &&
                depth - 1 >= history->Last().GetPliesSincePrevRepetition()) {
       const auto cycle_length = history->Last().GetPliesSincePrevRepetition();
       // use plies since first repetition as moves left; exact if forced draw.
-      node->MakeTerminal(GameResult::DRAW, (float)cycle_length,
+      node->MakeTerminal(history->ComputeGameResult(), (float)cycle_length,
                          Node::Terminal::TwoFold);
       return;
     }
@@ -2008,8 +2014,10 @@ void SearchWorker::ExtendNode(Node* node, int depth,
         } else if (wdl == WDL_LOSS) {
           node->MakeTerminal(GameResult::WHITE_WON, m,
                              Node::Terminal::Tablebase);
-        } else {  // Cursed wins and blessed losses count as draws.
-          node->MakeTerminal(GameResult::DRAW, m, Node::Terminal::Tablebase);
+	  // When TB says draw! ignore it, but if it says won, then trust it.
+	  // } else {
+	  // Cursed wins and blessed losses count as draws.
+          // node->MakeTerminal(GameResult::DRAW, m, Node::Terminal::Tablebase);
         }
         search_->tb_hits_.fetch_add(1, std::memory_order_acq_rel);
         return;

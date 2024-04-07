@@ -156,6 +156,7 @@ std::string OnnxBuilder::Add(const std::string& name, const std::string& input1,
 
 std::string OnnxBuilder::Add(const std::string& name, const std::string& input1,
                              const OnnxConst& input2) {
+  if (input2.GetRawData().size() == 0) return input1;
   auto* node = model_.mutable_graph()->add_node();
   auto out = PopulateStdNodeFields(node, name, input1, "Add");
   node->add_input(AddInitializer(name + "/w", input2));
@@ -371,7 +372,10 @@ std::string OnnxBuilder::LayerNormalization(const std::string& name,
   auto* node = model_.mutable_graph()->add_node();
   auto out = PopulateStdNodeFields(node, name, input, "LayerNormalization");
   node->add_input(AddInitializer(name + "/w/scale", scale));
-  node->add_input(AddInitializer(name + "/w/bias", bias));
+  // Bias is optional.
+  if (bias.GetRawData().size() > 0) {
+    node->add_input(AddInitializer(name + "/w/bias", bias));
+  }
   AddIntAttribute(node, "axis", axis);
   AddFloatAttribute(node, "epsilon", epsilon);
   return out;
