@@ -307,9 +307,6 @@ void Node::MakeTerminal(GameResult result, float plies_left, Terminal type) {
   } else if (result == GameResult::WHITE_WON) {
     wl_ = 1.0f;
     d_ = 0.0f;
-  } else if (result == GameResult::BLACK_WON) {
-    wl_ = -1.0f;
-    d_ = 0.0f;
   } else if (result == GameResult::WHITE_STALEMATE) {
     wl_ = 0.5;
     d_ = 0.0f;

@@ -301,7 +301,7 @@ int PositionHistory::LocatePeakRmobilityScore() const {
     // switch player for the next iteration
     is_black_to_move = !is_black_to_move;
   }
-  LOGFILE << "find peak r-mobilit() found result_as_int = " << +result_as_int << " and peak position at " << index_of_peak_rmobility_score;
+  LOGFILE << "find peak r-mobility() found result_as_int = " << +result_as_int << " and peak position at " << index_of_peak_rmobility_score;
   return index_of_peak_rmobility_score;
 }
 

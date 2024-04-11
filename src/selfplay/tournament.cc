@@ -455,7 +455,11 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 
     // Update tournament stats.
     auto gameresult = game.GetGameResult();
-    LOGFILE << "in PlayOneGame() result_as_int = " << +static_cast<int>(gameresult);    
+    if(player1_black) {
+      LOGFILE << "in PlayOneGame(), player1 was black, result_as_int = " << +static_cast<int>(gameresult);
+    } else {
+      LOGFILE << "in PlayOneGame(), player1 was white, result_as_int = " << +static_cast<int>(gameresult);      
+    }
     
     {
       Mutex::Lock lock(mutex_);
