@@ -38,7 +38,6 @@
 #include "utils/filesystem.h"
 #include "utils/optionsparser.h"
 #include "utils/random.h"
-#include "utils/logging.h"
 
 namespace lczero {
 
@@ -428,17 +427,6 @@ void ChangeInputFormat(int newInputFormat, V7TrainingData* data,
 }
 
 int ResultForData(const V7TrainingData& data) {
-  // // Ensure we aren't reprocessing some data that has had custom adjustments to
-  // // result training target applied.
-  // DataAssert(data.result_q == -1.0f || data.result_q == 1.0f ||
-  //            data.result_q == 0.0f);
-  // // Paranoia - ensure int cast never breaks the value.
-  // DataAssert(data.result_q ==
-  //            static_cast<float>(static_cast<int>(data.result_q)));
-  // return static_cast<int>(data.result_q);
-
-  std::cout << "ResultForData() input q: " << data.result_q << std::endl;
-  
   if(data.result_q > 0){
     return -1;
   }
@@ -582,7 +570,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         const auto& board = history.Last().GetBoard();
         if (board.castlings().no_legal_castle() &&
             history.Last().GetRule50Ply() == 0 &&
-            (board.ours() | board.theirs()).count() <= 
+            (board.ours() | board.theirs()).count() <=
                 tablebase->max_cardinality()) {
           ProbeState state;
           WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
@@ -596,17 +584,17 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
               score_to_apply = -1;
             }
 	    if(score_to_apply != 0){ // Rmobility: only fix if won or lost
-	      std::cout << "Found a TB win/loss at position: " << i << std::endl;
+	      // std::cout << "Found a TB win/loss at position: " << i << std::endl;
 	      for (int j = i + 1; j > last_rescore; j--) {
 		if (ResultForData(fileContents[j]) != score_to_apply) {
 		  if (j == i + 1 && last_rescore == -1) {
 		    fixed_counts[ResultForData(fileContents[0]) + 1]--;
 		    bool flip = (i % 2) == 0;
 		    fixed_counts[(flip ? -score_to_apply : score_to_apply) + 1]++;
-		    std::cout << "Rescoring: " << file << " "  << "position: " << j << " " << 
-		      fileContents[j].result_q << " -> "
-		      << static_cast<float>(score_to_apply)
-		      << std::endl;
+		    // std::cout << "Rescoring: " << file << " "  << "position: " << j << " " <<
+		    //   fileContents[j].result_q << " -> "
+		    //   << static_cast<float>(score_to_apply)
+		    //   << std::endl;
 		  }
 		  rescored += 1;
                 delta += abs(ResultForData(fileContents[j]) - score_to_apply);
@@ -645,7 +633,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 
 	  // Rmobility, do not trust TB draws, adjust score only if it is a win/loss,
 	  // which is pretty much the opposite of this block did before my changes.
-	      
+
           ProbeState state;
           WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
           // Only fail state means the WDL is wrong, probe_wdl may produce
@@ -735,7 +723,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 	    // Only rescore if win/loss
             if (new_score != 0) {
               fileContents[i + 1].result_d = 0.0f;
-	      std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score);
+	      // std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score);
 	      fileContents[i + 1].result_q = static_cast<float>(new_score);
 	    }
           }
@@ -1058,7 +1046,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
           history.Append(moves[i]);
           const auto& board = history.Last().GetBoard();
           if (board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <= 
+              (board.ours() | board.theirs()).count() <=
 	      tablebase->max_cardinality()) { // This should be safe from a R-mobility perspective, I think this just finds the last move *before* entering TB domain.
             history.Pop();
             break;
@@ -1135,15 +1123,15 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       if (!outputDir.empty()) {
         std::string fileName = file.substr(file.find_last_of("/\\") + 1);
         TrainingDataWriter writer(outputDir + "/" + fileName);
-	std::cout << "Ready rescoring this game, now follows a list of q values";	
+	// std::cout << "Ready rescoring this game, now follows a list of q values";
         for (auto chunk : fileContents) {
           // Don't save chunks that just provide move history.
           if ((chunk.invariance_info & 64) == 0) {
-	    std::cout << chunk.result_q << " ";
+	    // std::cout << chunk.result_q << " ";
             writer.WriteChunk(chunk);
           }
         }
-	std::cout << "\n";
+	// std::cout << "\n";
       }
 
       // Output data in Stockfish plain format.
