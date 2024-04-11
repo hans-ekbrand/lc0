@@ -94,6 +94,7 @@ GameResult operator-(const GameResult& res) {
 GameResult PositionHistory::ComputeGameResultRmobility() const {
   // traverse the game history until the last move that reset the 50 ply move rule (pawn move or capture)
   // find out which side first reached the highest goal that was reached, and what that goal was.
+  // move N leads to position N+1 since position 1 is not proceeded by any move.
   LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength();
   struct {
     long unsigned int number_of_legal_moves;
@@ -106,28 +107,35 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
   GameResult result = GameResult::DRAW;
   uint8_t result_as_int;
   for(int i = 1; i <= Last().GetRule50Ply(); i++){
+    // What is the motivation to start scoring at the position preceeding the position that triggered the 50 move rule?
+    // "Finally, if a game does end due to a 50-move rule, then the final position is ignored for the purposes of computing the best achieved G-score, unless it is stalemate, as explained above."
+    // https://wiki.chessdom.org/R-Mobility#Point_scoring
+    
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
-    const auto& board = GetPositionAt(GetLength() - i - 1).GetBoard();
+    const auto& board = GetPositionAt(GetLength() - i).GetBoard();
+    if(i == Last().GetRule50Ply()){
+      LOGFILE << "Number of pieces at the first move after the last zeroing move: " << (board.ours() | board.theirs()).count();
+    }
     auto legal_moves = board.GenerateLegalMoves();
     if(legal_moves.size() < 10 && legal_moves.size() <= best_goal.number_of_legal_moves){
       best_goal.number_of_legal_moves = legal_moves.size();
       best_goal.is_in_check = board.IsUnderCheck();
-      best_goal.white_is_best_player = ! is_black_to_move;
+      best_goal.white_is_best_player = is_black_to_move;
       // This fits the order defined in position.h line 97
-      result_as_int = 1 + is_black_to_move * 2 * legal_moves.size() + ! is_black_to_move * 20 + ! is_black_to_move * 2 * (9 - legal_moves.size()) + ! board.IsUnderCheck();
+      result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
       LOGFILE << "result_as_int = " << +result_as_int;
       result = static_cast<GameResult>(result_as_int);
       if(best_goal.white_is_best_player){
 	if(best_goal.is_in_check){
-	  LOGFILE << "White reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " and in check at ply: " << positions_.size() - i;
+	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " and in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << ").";
 	} else {
-	  LOGFILE << "White reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " not in check at ply: " << positions_.size() - i;	  
+	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " not in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
 	}
       } else {
 	if(best_goal.is_in_check){
-	  LOGFILE << "Black reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " and in check at ply: " << positions_.size() - i;
+	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " and in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << ").";
 	} else {
-	  LOGFILE << "Black reached a new highest goal. number of legal moves: " << best_goal.number_of_legal_moves << " not in check at ply: " << positions_.size() - i;	  
+	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " not in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
 	}
       }
     }
@@ -200,6 +208,9 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
     LOGFILE << "Result: draw";
     break;
   case 22:
+    LOGFILE << "Result: white won by checkmate";
+    break;
+  case 23:
     LOGFILE << "Result: white won by stalemate";
     break;
   case 24:
@@ -258,6 +269,40 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
     break;
   }
   return result;
+}
+
+int PositionHistory::LocatePeakRmobilityScore() const {
+  // traverse the game history until the last move that reset the 50 ply move rule (pawn move or capture)
+  // find out which side first reached the highest goal that was reached, and what that goal was.
+  // Return the number of moves (starting at the last move of the game) that are irrelevant and should be discarded
+  LOGFILE << "LocatePeakRmobilityScore() Calculating R mobility score. number of elements in history: " << GetLength();
+  struct {
+    long unsigned int number_of_legal_moves;
+    bool is_in_check;
+    bool white_is_best_player;
+  } best_goal;
+  best_goal.number_of_legal_moves = 10;
+  best_goal.is_in_check = false;
+  bool is_black_to_move = IsBlackToMove();
+  int index_of_peak_rmobility_score = 0;
+  uint8_t result_as_int;
+  for(int i = 1; i <= Last().GetRule50Ply(); i++){
+    // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
+    const auto& board = GetPositionAt(GetLength() - i).GetBoard();
+    auto legal_moves = board.GenerateLegalMoves();
+    if(legal_moves.size() < 10 && legal_moves.size() <= best_goal.number_of_legal_moves){
+      best_goal.number_of_legal_moves = legal_moves.size();
+      best_goal.is_in_check = board.IsUnderCheck();
+      best_goal.white_is_best_player = is_black_to_move;
+      index_of_peak_rmobility_score = positions_.size() - i;
+      // This fits the order defined in position.h line 97
+      result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
+    }
+    // switch player for the next iteration
+    is_black_to_move = !is_black_to_move;
+  }
+  LOGFILE << "find peak r-mobilit() found result_as_int = " << +result_as_int << " and peak position at " << index_of_peak_rmobility_score;
+  return index_of_peak_rmobility_score;
 }
 
 GameResult PositionHistory::ComputeGameResult() const {

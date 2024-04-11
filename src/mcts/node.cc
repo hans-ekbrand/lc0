@@ -606,6 +606,14 @@ void NodeTree::MakeMove(Move move) {
   history_.Append(move);
 }
 
+void NodeTree::SetHead(Node* node) {
+  current_head_ = node;
+}
+
+void NodeTree::TrimHistoryAt(int last_position_to_keep) {
+  history_.Trim(last_position_to_keep);
+}
+
 void NodeTree::TrimTreeAtHead() {
   // If solid, this will be empty before move and will be moved back empty
   // afterwards which is fine.

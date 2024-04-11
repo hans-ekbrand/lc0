@@ -85,11 +85,16 @@ class SelfPlayGame {
   // not.
   void Abort();
 
+  void SetHead(Node* node);  
+
   // Number of ply used from the given opening.
   int GetStartPly() const { return start_ply_; }
 
   // Writes training data to a file.
   void WriteTrainingData(TrainingDataWriter* writer) const;
+
+  // return only the first tree (not sure if the both include the final position as leaf).  
+  std::shared_ptr<NodeTree> GetGameTree() const { return tree_[0]; }
 
   GameResult GetGameResult() const { return game_result_; }
   std::vector<Move> GetMoves() const;

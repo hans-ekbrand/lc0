@@ -647,6 +647,8 @@ class NodeTree {
   int GetPlyCount() const { return HeadPosition().GetGamePly(); }
   bool IsBlackToMove() const { return HeadPosition().IsBlackToMove(); }
   Node* GetCurrentHead() const { return current_head_; }
+  void SetHead(Node* node);
+  void TrimHistoryAt(int last_position_to_keep);
   Node* GetGameBeginNode() const { return gamebegin_node_.get(); }
   const PositionHistory& GetPositionHistory() const { return history_; }
 

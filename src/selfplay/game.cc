@@ -280,20 +280,7 @@ void SelfPlayGame::Play(int white_threads, int black_threads, bool training,
 
     if (training) {
       bool best_is_proof = best_is_terminal;  // But check for better moves.
-      // if (best_is_proof && best_eval.wl < 1) {
-      // With Rmobility, white win if q is above 0
-      if (best_is_proof && best_eval.wl <= 0) {
-	LOGFILE << "SelfPlayGame::Play() found the best node (so far!) with a q with at 0 or less and being terminal, which means any node that is a proven draw is 'best'";
-        auto best =
-	  (best_eval.wl == 0) ? GameResult::DRAW : GameResult::BLACK_WON;
-        auto upper = best;
-        for (const auto& edge : node->Edges()) {
-          upper = std::max(edge.GetBounds().second, upper);
-        }
-        if (best < upper) {
-          best_is_proof = false;
-        }
-      }
+      
       // Append training data. The GameResult is later overwritten.
       NNCacheLock nneval =
           search_->GetCachedNNEval(tree_[idx]->GetCurrentHead());

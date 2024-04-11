@@ -412,6 +412,40 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     }
     if (kTraining &&
         game_info.play_start_ply < static_cast<int>(game_info.moves.size())) {
+      // TODO discard moves after the best r-mobility score, unless the last position has a gameoutcome in
+      // DRAW WHITE_WON, WHITE_STALEMATE BLACK_WON BLACK_STALEMATE
+      if (game.GetGameResult() != GameResult::DRAW &&
+	  game.GetGameResult() != GameResult::WHITE_WON &&
+	  game.GetGameResult() != GameResult::WHITE_STALEMATE &&
+	  game.GetGameResult() != GameResult::BLACK_WON &&
+	  game.GetGameResult() != GameResult::BLACK_STALEMATE) {
+
+	// From the last position find the last zeroing move.
+	// From the last zeroing move, find the first position with same outcome as the game outcome
+	// discard the rest of the moves in the history, so that game.GetMoves() only return the moves up to this point.
+
+	int interesting_part_of_the_game = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
+	int number_of_moves_to_discard = game_info.moves.size() - interesting_part_of_the_game;
+	LOGFILE << "Number of plies/positions to discard:" << number_of_moves_to_discard;
+	// Traverse the tree this many generations, set current_ to that node, apply TrimTreeAtHead()
+	Node* node = game.GetGameTree()->GetCurrentHead();
+	for(int i = 0; i < number_of_moves_to_discard; i++){
+	  node = node->GetParent();
+	}
+	LOGFILE << "Head before cutting: " << game.GetGameTree()->GetCurrentHead()->DebugString();
+	LOGFILE << "Node to use a new head: " << node->DebugString();      
+	game.GetGameTree()->SetHead(node);
+	game.GetGameTree()->TrimTreeAtHead();
+	LOGFILE << "Head after cutting: " << game.GetGameTree()->GetCurrentHead()->DebugString();
+	// game.GetGameTree()->GetPositionHistory().Trim(interesting_part_of_the_game);
+	LOGFILE << "Number of moves after trimming: " << game.GetMoves().size();
+	game.GetGameTree()->TrimHistoryAt(interesting_part_of_the_game);
+	LOGFILE << "Number of positions after trimming: " << game.GetGameTree()->GetPositionHistory().GetLength();
+	// Update the _info part too
+	game_info.moves = game.GetMoves();
+	// And a bit that is read by tournament_callback_()
+	game.move_count_ = game.GetMoves().size();
+      }
       TrainingDataWriter writer(game_number);
       game.WriteTrainingData(&writer);
       writer.Finalize();

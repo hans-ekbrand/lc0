@@ -137,6 +137,8 @@ class PositionHistory {
   void Pop() { positions_.pop_back(); }
 
   GameResult ComputeGameResultRmobility() const;
+
+  int LocatePeakRmobilityScore() const;
   
   // Finds the endgame state (win/lose/draw/nothing) for the last position.
   GameResult ComputeGameResult() const;
