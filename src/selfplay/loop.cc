@@ -432,6 +432,7 @@ int ResultForData(const V7TrainingData& data) {
   DataAssert(data.result_q == -1.0f || data.result_q == 1.0f ||
              data.result_q == 0.0f);
   // Paranoia - ensure int cast never breaks the value.
+  std::cout << "result: " << data.result_q;
   DataAssert(data.result_q ==
              static_cast<float>(static_cast<int>(data.result_q)));
   return static_cast<int>(data.result_q);
