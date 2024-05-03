@@ -427,13 +427,13 @@ void ChangeInputFormat(int newInputFormat, V7TrainingData* data,
 }
 
 int ResultForData(const V7TrainingData& data) {
-  if(data.result_q > 0){
+  if(data.result_q < 0){
     return -1;
   }
   if(data.result_q == 0){
     return 0;
   }
-  if(data.result_q < 0){
+  if(data.result_q > 0){
     return 1;
   }
 }
