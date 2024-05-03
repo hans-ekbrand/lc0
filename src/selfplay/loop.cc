@@ -723,7 +723,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 	    // Only rescore if win/loss
             if (new_score != 0) {
               fileContents[i + 1].result_d = 0.0f;
-	      // std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score);
+	      std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score) << ". " ;
 	      fileContents[i + 1].result_q = static_cast<float>(new_score);
 	    }
           }
@@ -1123,15 +1123,17 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       if (!outputDir.empty()) {
         std::string fileName = file.substr(file.find_last_of("/\\") + 1);
         TrainingDataWriter writer(outputDir + "/" + fileName);
-	// std::cout << "Ready rescoring this game, now follows a list of q values";
+	std::cout << "Ready rescoring this game, now follows a list of q values: ";
+	int i = 0;
         for (auto chunk : fileContents) {
           // Don't save chunks that just provide move history.
           if ((chunk.invariance_info & 64) == 0) {
-	    // std::cout << chunk.result_q << " ";
+	    std::cout << "i:" << i << " q:" << chunk.result_q << " ";
+	    i++;
             writer.WriteChunk(chunk);
           }
         }
-	// std::cout << "\n";
+	std::cout << "\n";
       }
 
       // Output data in Stockfish plain format.
