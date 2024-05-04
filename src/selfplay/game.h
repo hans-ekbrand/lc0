@@ -91,7 +91,7 @@ class SelfPlayGame {
   int GetStartPly() const { return start_ply_; }
 
   // Writes training data to a file.
-  void WriteTrainingData(TrainingDataWriter* writer, int number_of_moves_to_actually_save) const;
+  void WriteTrainingData(TrainingDataWriter* writer, int number_of_moves_to_actually_save);
 
   // return only the first tree (not sure if the both include the final position as leaf).  
   std::shared_ptr<NodeTree> GetGameTree() const { return tree_[0]; }

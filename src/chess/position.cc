@@ -294,7 +294,8 @@ int PositionHistory::LocatePeakRmobilityScore() const {
       best_goal.number_of_legal_moves = legal_moves.size();
       best_goal.is_in_check = board.IsUnderCheck();
       best_goal.white_is_best_player = is_black_to_move;
-      index_of_peak_rmobility_score = positions_.size() - i;
+      index_of_peak_rmobility_score = positions_.size() - i + 1; // +1 because startposition is the
+      // position for ply 1.
       // This fits the order defined in position.h line 97
       result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
     }

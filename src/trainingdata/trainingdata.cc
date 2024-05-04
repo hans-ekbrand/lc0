@@ -78,15 +78,20 @@ std::tuple<float, float> DriftCorrect(float q, float d) {
 }  // namespace
 
 void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
-                                bool adjudicated, int number_of_plies_to_write) const {
+                                bool adjudicated, long unsigned int number_of_chunks_to_write) {
   if (training_data_.empty()) return;
+
+  // std::cout << "Number of positions generated: " << training_data_.size() << "\n";  
+  // std::cout << "Number of positions to write: " << number_of_chunks_to_write << "\n";
+
+  if(number_of_chunks_to_write < training_data_.size() - 1){
+    training_data_.erase(training_data_.begin() + number_of_chunks_to_write, training_data_.end());
+  }
+
   // Base estimate off of best_m.  If needed external processing can use a
   // different approach.
   float m_estimate = training_data_.back().best_m + training_data_.size() - 1;
-  int number_of_plies_written = 0;
-  std::cout << "Number of plies to write: " << number_of_plies_to_write << "\n";
   for (auto chunk : training_data_) {
-    // while(number_of_plies_written < number_of_plies_to_write){
       bool black_to_move = chunk.side_to_move_or_enpassant;
       if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
             chunk.input_format))) {
@@ -226,10 +231,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
       chunk.plies_left = m_estimate;
       m_estimate -= 1.0f;
       writer->WriteChunk(chunk);
-      number_of_plies_written++;
-    // }
   }
-  std::cout << "Number of plies written: " << number_of_plies_written << "\n";
 }
 
 void V6TrainingDataArray::Add(const Node* node, const PositionHistory& history,
