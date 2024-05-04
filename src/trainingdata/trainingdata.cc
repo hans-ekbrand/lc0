@@ -84,9 +84,9 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
   // different approach.
   float m_estimate = training_data_.back().best_m + training_data_.size() - 1;
   int number_of_plies_written = 0;
-  std::cout << "Number of plies to write: " << number_of_plies_to_write;
+  std::cout << "Number of plies to write: " << number_of_plies_to_write << "\n";
   for (auto chunk : training_data_) {
-    while(number_of_plies_written < number_of_plies_to_write){
+    // while(number_of_plies_written < number_of_plies_to_write){
       bool black_to_move = chunk.side_to_move_or_enpassant;
       if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
             chunk.input_format))) {
@@ -226,9 +226,10 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
       chunk.plies_left = m_estimate;
       m_estimate -= 1.0f;
       writer->WriteChunk(chunk);
-      number_of_plies_written++;    
-    }
+      number_of_plies_written++;
+    // }
   }
+  std::cout << "Number of plies written: " << number_of_plies_written << "\n";
 }
 
 void V6TrainingDataArray::Add(const Node* node, const PositionHistory& history,
