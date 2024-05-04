@@ -438,16 +438,16 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	game.GetGameTree()->TrimTreeAtHead();
 	LOGFILE << "Head after cutting: " << game.GetGameTree()->GetCurrentHead()->DebugString();
 	// game.GetGameTree()->GetPositionHistory().Trim(interesting_part_of_the_game);
-	LOGFILE << "Number of moves after trimming: " << game.GetMoves().size();
+	LOGFILE << "Number of moves after trimming the tree: " << game.GetMoves().size();
 	game.GetGameTree()->TrimHistoryAt(interesting_part_of_the_game);
-	LOGFILE << "Number of positions after trimming: " << game.GetGameTree()->GetPositionHistory().GetLength();
+	LOGFILE << "Number of positions after trimming the history vector: " << game.GetGameTree()->GetPositionHistory().GetLength();
 	// Update the _info part too
 	game_info.moves = game.GetMoves();
 	// And a bit that is read by tournament_callback_()
 	game.move_count_ = game.GetMoves().size();
       }
       TrainingDataWriter writer(game_number);
-      game.WriteTrainingData(&writer);
+      game.WriteTrainingData(&writer, game.GetMoves().size());
       writer.Finalize();
       game_info.training_filename = writer.GetFileName();
     }

@@ -78,151 +78,156 @@ std::tuple<float, float> DriftCorrect(float q, float d) {
 }  // namespace
 
 void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
-                                bool adjudicated) const {
+                                bool adjudicated, int number_of_plies_to_write) const {
   if (training_data_.empty()) return;
   // Base estimate off of best_m.  If needed external processing can use a
   // different approach.
   float m_estimate = training_data_.back().best_m + training_data_.size() - 1;
+  int number_of_plies_written = 0;
+  std::cout << "Number of plies to write: " << number_of_plies_to_write;
   for (auto chunk : training_data_) {
-    bool black_to_move = chunk.side_to_move_or_enpassant;
-    if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
+    while(number_of_plies_written < number_of_plies_to_write){
+      bool black_to_move = chunk.side_to_move_or_enpassant;
+      if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
             chunk.input_format))) {
-      black_to_move = (chunk.invariance_info & (1u << 7)) != 0;
+	black_to_move = (chunk.invariance_info & (1u << 7)) != 0;
+      }
+      if (result == GameResult::WHITE_WON) {
+	chunk.result_q = black_to_move ? -1 : 1;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_STALEMATE) {
+	// for r-mobility the points in https://wiki.chessdom.org/R-Mobility#50-move_rule must be scaled to the range of q [-1, 1], which means multiply by 2, and then subtract 1
+	chunk.result_q = black_to_move ? -0.5 : 0.5; // 0.75 * 2 - 1 = 0.5
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G1_0) {
+	chunk.result_q = black_to_move ? -0.25 : 0.25;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G1_5) {
+	chunk.result_q = black_to_move ? -0.125 : 0.125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G2_0) {
+	chunk.result_q = black_to_move ? -0.0625 : 0.0625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G2_5) {
+	chunk.result_q = black_to_move ? -0.03125 : 0.03125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G3_0) {
+	chunk.result_q = black_to_move ? -0.015625 : 0.015625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G3_5) {
+	chunk.result_q = black_to_move ? -0.0078125 : 0.0078125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G4_0) {
+	chunk.result_q = black_to_move ? -0.00390625 : 0.00390625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G4_5) {
+	chunk.result_q = black_to_move ? -0.001953125 : 0.001953125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G5_0) {
+	chunk.result_q = black_to_move ? -0.0009765625 : 0.0009765625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G5_5) {
+	chunk.result_q = black_to_move ? -0.0004882812 : 0.0004882812;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G6_0) {
+	chunk.result_q = black_to_move ? -0.0002441406 : 0.0002441406;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G6_5) {
+	chunk.result_q = black_to_move ? -0.0001220703 : 0.0001220703;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G7_0) {
+	chunk.result_q = black_to_move ? -0.00006103516 : 0.00006103516;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G7_5) {
+	chunk.result_q = black_to_move ? -0.00003051758 : 0.00003051758;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G8_0) {
+	chunk.result_q = black_to_move ? -0.00001525879 : 0.00001525879;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G8_5) {
+	chunk.result_q = black_to_move ? -0.000007629395 : 0.000007629395;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G9_0) {
+	chunk.result_q = black_to_move ? -0.000003814697 : 0.000003814697;
+	chunk.result_d = 0;
+      } else if (result == GameResult::WHITE_G9_5) {
+	chunk.result_q = black_to_move ? -0.000001907349 : 0.000001907349;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_WON) {
+	chunk.result_q = black_to_move ? 1 : -1;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_STALEMATE) {
+	chunk.result_q = black_to_move ? 0.5 : -0.5; // 0.75 * 2 - 1 = 0.5
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G1_0) {
+	chunk.result_q = black_to_move ? 0.25 : -0.25;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G1_5) {
+	chunk.result_q = black_to_move ? 0.125 : -0.125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G2_0) {
+	chunk.result_q = black_to_move ? 0.0625 : -0.0625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G2_5) {
+	chunk.result_q = black_to_move ? 0.03125 : -0.03125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G3_0) {
+	chunk.result_q = black_to_move ? 0.015625 : -0.015625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G3_5) {
+	chunk.result_q = black_to_move ? 0.0078125 : -0.0078125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G4_0) {
+	chunk.result_q = black_to_move ? 0.00390625 : -0.00390625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G4_5) {
+	chunk.result_q = black_to_move ? 0.001953125 : -0.001953125;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G5_0) {
+	chunk.result_q = black_to_move ? 0.0009765625 : -0.0009765625;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G5_5) {
+	chunk.result_q = black_to_move ? 0.0004882812 : -0.0004882812;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G6_0) {
+	chunk.result_q = black_to_move ? 0.0002441406 : -0.0002441406;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G6_5) {
+	chunk.result_q = black_to_move ? 0.0001220703 : -0.0001220703;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G7_0) {
+	chunk.result_q = black_to_move ? 0.00006103516 : -0.00006103516;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G7_5) {
+	chunk.result_q = black_to_move ? 0.00003051758 : -0.00003051758;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G8_0) {
+	chunk.result_q = black_to_move ? 0.00001525879 : -0.00001525879;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G8_5) {
+	chunk.result_q = black_to_move ? 0.000007629395 : -0.000007629395;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G9_0) {
+	chunk.result_q = black_to_move ? 0.000003814697 : -0.000003814697;
+	chunk.result_d = 0;
+      } else if (result == GameResult::BLACK_G9_5) {
+	chunk.result_q = black_to_move ? 0.000001907349 : -0.000001907349;
+	chunk.result_d = 0;
+      } else {
+	chunk.result_q = 0;
+	chunk.result_d = 1;
+      }
+      if (adjudicated) {
+	chunk.invariance_info |= 1u << 5;  // Game adjudicated.
+      }
+      if (adjudicated && result == GameResult::UNDECIDED) {
+	chunk.invariance_info |= 1u << 4;  // Max game length exceeded.
+      }
+      chunk.plies_left = m_estimate;
+      m_estimate -= 1.0f;
+      writer->WriteChunk(chunk);
+      number_of_plies_written++;    
     }
-    if (result == GameResult::WHITE_WON) {
-      chunk.result_q = black_to_move ? -1 : 1;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_STALEMATE) {
-      // for r-mobility the points in https://wiki.chessdom.org/R-Mobility#50-move_rule must be scaled to the range of q [-1, 1], which means multiply by 2, and then subtract 1
-      chunk.result_q = black_to_move ? -0.5 : 0.5; // 0.75 * 2 - 1 = 0.5
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G1_0) {
-      chunk.result_q = black_to_move ? -0.25 : 0.25;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G1_5) {
-      chunk.result_q = black_to_move ? -0.125 : 0.125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G2_0) {
-      chunk.result_q = black_to_move ? -0.0625 : 0.0625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G2_5) {
-      chunk.result_q = black_to_move ? -0.03125 : 0.03125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G3_0) {
-      chunk.result_q = black_to_move ? -0.015625 : 0.015625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G3_5) {
-      chunk.result_q = black_to_move ? -0.0078125 : 0.0078125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G4_0) {
-      chunk.result_q = black_to_move ? -0.00390625 : 0.00390625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G4_5) {
-      chunk.result_q = black_to_move ? -0.001953125 : 0.001953125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G5_0) {
-      chunk.result_q = black_to_move ? -0.0009765625 : 0.0009765625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G5_5) {
-      chunk.result_q = black_to_move ? -0.0004882812 : 0.0004882812;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G6_0) {
-      chunk.result_q = black_to_move ? -0.0002441406 : 0.0002441406;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G6_5) {
-      chunk.result_q = black_to_move ? -0.0001220703 : 0.0001220703;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G7_0) {
-      chunk.result_q = black_to_move ? -0.00006103516 : 0.00006103516;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G7_5) {
-      chunk.result_q = black_to_move ? -0.00003051758 : 0.00003051758;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G8_0) {
-      chunk.result_q = black_to_move ? -0.00001525879 : 0.00001525879;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G8_5) {
-      chunk.result_q = black_to_move ? -0.000007629395 : 0.000007629395;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G9_0) {
-      chunk.result_q = black_to_move ? -0.000003814697 : 0.000003814697;
-      chunk.result_d = 0;
-    } else if (result == GameResult::WHITE_G9_5) {
-      chunk.result_q = black_to_move ? -0.000001907349 : 0.000001907349;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_WON) {
-      chunk.result_q = black_to_move ? 1 : -1;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_STALEMATE) {
-      chunk.result_q = black_to_move ? 0.5 : -0.5; // 0.75 * 2 - 1 = 0.5
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G1_0) {
-      chunk.result_q = black_to_move ? 0.25 : -0.25;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G1_5) {
-      chunk.result_q = black_to_move ? 0.125 : -0.125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G2_0) {
-      chunk.result_q = black_to_move ? 0.0625 : -0.0625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G2_5) {
-      chunk.result_q = black_to_move ? 0.03125 : -0.03125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G3_0) {
-      chunk.result_q = black_to_move ? 0.015625 : -0.015625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G3_5) {
-      chunk.result_q = black_to_move ? 0.0078125 : -0.0078125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G4_0) {
-      chunk.result_q = black_to_move ? 0.00390625 : -0.00390625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G4_5) {
-      chunk.result_q = black_to_move ? 0.001953125 : -0.001953125;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G5_0) {
-      chunk.result_q = black_to_move ? 0.0009765625 : -0.0009765625;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G5_5) {
-      chunk.result_q = black_to_move ? 0.0004882812 : -0.0004882812;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G6_0) {
-      chunk.result_q = black_to_move ? 0.0002441406 : -0.0002441406;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G6_5) {
-      chunk.result_q = black_to_move ? 0.0001220703 : -0.0001220703;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G7_0) {
-      chunk.result_q = black_to_move ? 0.00006103516 : -0.00006103516;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G7_5) {
-      chunk.result_q = black_to_move ? 0.00003051758 : -0.00003051758;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G8_0) {
-      chunk.result_q = black_to_move ? 0.00001525879 : -0.00001525879;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G8_5) {
-      chunk.result_q = black_to_move ? 0.000007629395 : -0.000007629395;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G9_0) {
-      chunk.result_q = black_to_move ? 0.000003814697 : -0.000003814697;
-      chunk.result_d = 0;
-    } else if (result == GameResult::BLACK_G9_5) {
-      chunk.result_q = black_to_move ? 0.000001907349 : -0.000001907349;
-      chunk.result_d = 0;
-    } else {
-      chunk.result_q = 0;
-      chunk.result_d = 1;
-    }
-    if (adjudicated) {
-      chunk.invariance_info |= 1u << 5;  // Game adjudicated.
-    }
-    if (adjudicated && result == GameResult::UNDECIDED) {
-      chunk.invariance_info |= 1u << 4;  // Max game length exceeded.
-    }
-    chunk.plies_left = m_estimate;
-    m_estimate -= 1.0f;
-    writer->WriteChunk(chunk);
   }
 }
 

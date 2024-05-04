@@ -341,8 +341,8 @@ void SelfPlayGame::Abort() {
   if (search_) search_->Abort();
 }
 
-void SelfPlayGame::WriteTrainingData(TrainingDataWriter* writer) const {
-  training_data_.Write(writer, game_result_, adjudicated_);
+void SelfPlayGame::WriteTrainingData(TrainingDataWriter* writer, int number_of_moves_to_actually_save) const {
+  training_data_.Write(writer, game_result_, adjudicated_, number_of_moves_to_actually_save);
 }
 
 std::unique_ptr<ChainedSearchStopper> SelfPlayLimits::MakeSearchStopper()
