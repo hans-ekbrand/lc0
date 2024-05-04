@@ -477,6 +477,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       while (reader.ReadChunk(&data)) {
         fileContents.push_back(data);
       }
+      std::cout "number of chunks (moves) found: " << fileContents.size();
       Validate(fileContents);
       MoveList moves;
       for (int i = 1; i < fileContents.size(); i++) {
