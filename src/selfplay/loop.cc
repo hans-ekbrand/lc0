@@ -490,6 +490,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         // move so need to mirror them all to be applicable to apply to the
         // position before.
         moves.back().Mirror();
+	std::cout << "stored move " << moves.back().as_string() << ". ";
       }
       Validate(fileContents, moves);
       games += 1;
