@@ -155,6 +155,7 @@ void Validate(const std::vector<V7TrainingData>& fileContents) {
     DataAssert(data.root_d >= 0.0f && data.root_d <= 1.0f);
     DataAssert(data.best_q >= -1.0f && data.best_q <= 1.0f);
     DataAssert(data.root_q >= -1.0f && data.root_q <= 1.0f);
+    // std::cout << "root_m: " << data.root_m << " best_m: " << data.best_m << " plies left: " << data.plies_left << " \n";
     DataAssert(data.root_m >= 0.0f);
     DataAssert(data.best_m >= 0.0f);
     DataAssert(data.plies_left >= 0.0f);
@@ -436,7 +437,10 @@ int ResultForData(const V7TrainingData& data) {
   }
   // Must be greater than 0, but having a simple if clause make the compiler warn about control reaches end of non-void function [-Wreturn-type]
   // if(data.result_q > 0){
-  if (! (data.result_q > 0)) throw Exception("Range Violation");
+  if (! (data.result_q > 0)) {
+    std::cout << "Strange Q value found: " << data.result_q << "\n";
+    throw Exception("Range Violation");
+  }
   return 1;
 }
 
@@ -481,6 +485,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       }
       // std::cout << "number of chunks (moves) found: " << fileContents.size() << "\n";
       Validate(fileContents);
+      // std::cout << "First check passed \n";      
       MoveList moves;
       for (int i = 1; i < fileContents.size(); i++) {
         moves.push_back(
