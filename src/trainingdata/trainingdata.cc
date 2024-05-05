@@ -78,20 +78,36 @@ std::tuple<float, float> DriftCorrect(float q, float d) {
 }  // namespace
 
 void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
-                                bool adjudicated, long unsigned int number_of_chunks_to_write) {
+                                bool adjudicated, long unsigned int number_of_chunks_to_write) const {
   if (training_data_.empty()) return;
 
   // std::cout << "Number of positions generated: " << training_data_.size() << "\n";  
   // std::cout << "Number of positions to write: " << number_of_chunks_to_write << "\n";
 
-  if(number_of_chunks_to_write < training_data_.size() - 1){
-    training_data_.erase(training_data_.begin() + number_of_chunks_to_write, training_data_.end());
-  }
+  // std::vector<V6TrainingData> trimmed_training_data = training_data_;
+
+  // if(number_of_chunks_to_write < training_data_.size() - 1){
+  //   auto first = training_data_.begin();
+  //   auto last = training_data_.begin() + number_of_chunks_to_write;
+  //   trimmed_training_data = training_data_(first, last);
+  // }
+
+  // auto my_subspan = std::make_span(training_data_).subspan(0, number_of_chunks_to_write);
 
   // Base estimate off of best_m.  If needed external processing can use a
   // different approach.
-  float m_estimate = training_data_.back().best_m + training_data_.size() - 1;
+
+  // if(number_of_chunks_to_write == 0){
+  //   number_of_chunks_to_write = training_data_.size() - 1;
+  //   std::cout << "modified number_of_chunks_to_write from 0 to " << training_data_.size();
+  // }
+  
+  float m_estimate = number_of_chunks_to_write;
   for (auto chunk : training_data_) {
+  // for (std::vector<V6TrainingData>::iterator it = training_data_.begin(); it != training_data_.begin() + number_of_chunks_to_write; ++it) {
+
+  // for (long unsigned int it = 0; it < number_of_chunks_to_write; ++it) {
+  //   auto chunk = training_data_[it];
       bool black_to_move = chunk.side_to_move_or_enpassant;
       if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
             chunk.input_format))) {
