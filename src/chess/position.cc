@@ -320,7 +320,9 @@ GameResult PositionHistory::ComputeGameResult() const {
     return IsBlackToMove() ? GameResult::WHITE_STALEMATE : GameResult::BLACK_STALEMATE;
   }
 
-  // if (!board.HasMatingMaterial()) return GameResult::DRAW;
+  // // if (!board.HasMatingMaterial()) return GameResult::DRAW;
+  // if (!board.HasMatingMaterial()) return ComputeGameResultRmobility();
+  
   if (Last().GetRule50Ply() >= 100) {
     return ComputeGameResultRmobility();
   }

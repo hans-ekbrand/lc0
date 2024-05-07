@@ -416,12 +416,12 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
       // DRAW WHITE_WON, WHITE_STALEMATE BLACK_WON BLACK_STALEMATE
 
       int interesting_part_of_the_game = 0;
-      
-      if (game.GetGameResult() != GameResult::DRAW &&
-	  game.GetGameResult() != GameResult::WHITE_WON &&
-	  game.GetGameResult() != GameResult::WHITE_STALEMATE &&
-	  game.GetGameResult() != GameResult::BLACK_WON &&
-	  game.GetGameResult() != GameResult::BLACK_STALEMATE) {
+
+      if (game_info.game_result != GameResult::DRAW &&
+	  game_info.game_result != GameResult::WHITE_WON &&
+	  game_info.game_result != GameResult::WHITE_STALEMATE &&
+	  game_info.game_result != GameResult::BLACK_WON &&
+	  game_info.game_result != GameResult::BLACK_STALEMATE) {
 
 	// From the last position find the last zeroing move. From the
 	// last zeroing move, find the first position with same
@@ -430,28 +430,30 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// moves up to this point.
 
 	interesting_part_of_the_game = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
+	LOGFILE << "in PlayOneGame(), found the peak r mobility score at" << interesting_part_of_the_game;	
       }
+      
       TrainingDataWriter writer(game_number);
+      LOGFILE << "starting to save the game";
       game.WriteTrainingData(&writer, interesting_part_of_the_game);
+      LOGFILE << "saved all moves to of the game";      
       writer.Finalize();
+      LOGFILE << "Finalised the chunk file";
       game_info.training_filename = writer.GetFileName();
     }
     game_callback_(game_info);
 
     // Update tournament stats.
-    auto gameresult = game.GetGameResult();
     if(player1_black) {
-      LOGFILE << "in PlayOneGame(), player1 was black, result_as_int = " << +static_cast<int>(gameresult);
+      LOGFILE << "in PlayOneGame(), player1 was black, result_as_int = " << +static_cast<int>(game_info.game_result);
     } else {
-      LOGFILE << "in PlayOneGame(), player1 was white, result_as_int = " << +static_cast<int>(gameresult);      
+      LOGFILE << "in PlayOneGame(), player1 was white, result_as_int = " << +static_cast<int>(game_info.game_result);      
     }
     
     {
       Mutex::Lock lock(mutex_);
-      int result = game.GetGameResult() == GameResult::DRAW        ? 1
-                   // : game.GetGameResult() == GameResult::WHITE_WON ? 0
-                   //                                                 : 2;
-                   : static_cast<int>(game.GetGameResult()) > 21 ? 0
+      int result = game_info.game_result == GameResult::DRAW        ? 1
+                   : static_cast<int>(game_info.game_result) > 21 ? 0
                                                                    : 2;
       if (player1_black) result = 2 - result;
       ++tournament_info_.results[result][player1_black ? 1 : 0];
@@ -461,10 +463,14 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     }
   }
 
+  LOGFILE << "About to erase the game " << game_number; 
+  
   {
     Mutex::Lock lock(mutex_);
     games_.erase(game_iter);
   }
+
+  LOGFILE << "game " << game_number << " erased.";   
 }
 
 void SelfPlayTournament::PlayMultiGames(int game_id, size_t game_count) {
@@ -536,9 +542,12 @@ void SelfPlayTournament::PlayMultiGames(int game_id, size_t game_count) {
       // Update tournament stats.
       {
         Mutex::Lock lock(mutex_);
-        int result = game1_res == GameResult::DRAW        ? 1
-                     : game1_res == GameResult::WHITE_WON ? 0
-                                                          : 2;
+        // int result = game1_res == GameResult::DRAW        ? 1
+        //              : game1_res == GameResult::WHITE_WON ? 0
+        //                                                   : 2;
+	int result = game1_res == GameResult::DRAW        ? 1
+                   : static_cast<int>(game1_res) > 21 ? 0
+                                                                   : 2;
         ++tournament_info_.results[result][0];
         tournament_callback_(tournament_info_);
       }
@@ -558,9 +567,12 @@ void SelfPlayTournament::PlayMultiGames(int game_id, size_t game_count) {
       // Update tournament stats.
       {
         Mutex::Lock lock(mutex_);
-        int result = game2_res == GameResult::DRAW        ? 1
-                     : game2_res == GameResult::WHITE_WON ? 2
-                                                          : 0;
+        // int result = game2_res == GameResult::DRAW        ? 1
+        //              : game2_res == GameResult::WHITE_WON ? 2
+        //                                                   : 0;
+	int result = game2_res == GameResult::DRAW        ? 1
+                   : static_cast<int>(game2_res) > 21 ? 0
+                                                                   : 2;
         ++tournament_info_.results[result][1];
         tournament_callback_(tournament_info_);
       }

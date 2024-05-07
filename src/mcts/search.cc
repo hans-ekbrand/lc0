@@ -1991,6 +1991,7 @@ void SearchWorker::ExtendNode(Node* node, int depth,
         history->Last().GetRule50Ply() == 0 &&
         (board.ours() | board.theirs()).count() <=
             search_->syzygy_tb_->max_cardinality()) {
+      LOGFILE << "will search the TB \n";
       ProbeState state;
       const WDLScore wdl =
           search_->syzygy_tb_->probe_wdl(history->Last(), &state);
@@ -2011,16 +2012,20 @@ void SearchWorker::ExtendNode(Node* node, int depth,
         if (wdl == WDL_WIN) {
           node->MakeTerminal(GameResult::BLACK_WON, m,
                              Node::Terminal::Tablebase);
+	  search_->tb_hits_.fetch_add(1, std::memory_order_acq_rel);
+	  return;
         } else if (wdl == WDL_LOSS) {
           node->MakeTerminal(GameResult::WHITE_WON, m,
                              Node::Terminal::Tablebase);
-	  // When TB says draw! ignore it, but if it says won, then trust it.
-	  // } else {
-	  // Cursed wins and blessed losses count as draws.
-          // node->MakeTerminal(GameResult::DRAW, m, Node::Terminal::Tablebase);
-        }
-        search_->tb_hits_.fetch_add(1, std::memory_order_acq_rel);
-        return;
+
+	  search_->tb_hits_.fetch_add(1, std::memory_order_acq_rel);
+	  return;
+	}
+	// When TB says draw! ignore it, but if it says won, then trust it.
+	// } else {
+	// Cursed wins and blessed losses count as draws.
+	// node->MakeTerminal(GameResult::DRAW, m, Node::Terminal::Tablebase);
+	LOGFILE << "Found a TB draw which I will ignore since TB does not now about r-mobility scores \n";
       }
     }
   }
