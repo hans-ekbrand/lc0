@@ -412,8 +412,8 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     }
     if (kTraining &&
         game_info.play_start_ply < static_cast<int>(game_info.moves.size())) {
-      // Discard moves after the best r-mobility score, unless the last position has a gameoutcome in
-      // DRAW WHITE_WON, WHITE_STALEMATE BLACK_WON BLACK_STALEMATE
+      // Locate the peak mobility score and discard moves after the best r-mobility score, unless the last position
+      // has a game outcome in DRAW WHITE_WON, WHITE_STALEMATE BLACK_WON BLACK_STALEMATE
 
       int interesting_part_of_the_game = 0;
 
@@ -452,9 +452,9 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     
     {
       Mutex::Lock lock(mutex_);
-      int result = game_info.game_result == GameResult::DRAW        ? 1
-                   : static_cast<int>(game_info.game_result) > 21 ? 0
-                                                                   : 2;
+	int result = game_info.game_result == GameResult::DRAW        ? 1
+                       : static_cast<int>(game_info.game_result) > 21 ? 0
+                                                                      : 2;
       if (player1_black) result = 2 - result;
       ++tournament_info_.results[result][player1_black ? 1 : 0];
       tournament_info_.move_count_ += game.move_count_;
@@ -546,8 +546,8 @@ void SelfPlayTournament::PlayMultiGames(int game_id, size_t game_count) {
         //              : game1_res == GameResult::WHITE_WON ? 0
         //                                                   : 2;
 	int result = game1_res == GameResult::DRAW        ? 1
-                   : static_cast<int>(game1_res) > 21 ? 0
-                                                                   : 2;
+                       : static_cast<int>(game1_res) > 21 ? 0
+                                                          : 2;
         ++tournament_info_.results[result][0];
         tournament_callback_(tournament_info_);
       }
@@ -571,8 +571,8 @@ void SelfPlayTournament::PlayMultiGames(int game_id, size_t game_count) {
         //              : game2_res == GameResult::WHITE_WON ? 2
         //                                                   : 0;
 	int result = game2_res == GameResult::DRAW        ? 1
-                   : static_cast<int>(game2_res) > 21 ? 0
-                                                                   : 2;
+                       : static_cast<int>(game2_res) > 21 ? 0
+                                                          : 2;
         ++tournament_info_.results[result][1];
         tournament_callback_(tournament_info_);
       }

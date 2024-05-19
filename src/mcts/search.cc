@@ -60,10 +60,12 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
   if (!searchmoves.empty()) return searchmoves;
   const auto& board = history.Last().GetBoard();
   MoveList root_moves;
+  LOGFILE << "MakeRootMoveFilter called number of pieces: " << (board.ours() | board.theirs()).count();
   if (!syzygy_tb || !board.castlings().no_legal_castle() ||
       (board.ours() | board.theirs()).count() > syzygy_tb->max_cardinality()) {
     return root_moves;
   }
+  LOGFILE << "MakeRootMoveFilter found the position to be covered by TB";
   if (syzygy_tb->root_probe(
           history.Last(), fast_play || history.DidRepeatSinceLastZeroingMove(),
           false, &root_moves)) {
@@ -72,6 +74,7 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
   } else if (syzygy_tb->root_probe_wdl(history.Last(), &root_moves)) {
     tb_hits->fetch_add(1, std::memory_order_acq_rel);
   }
+  // LOGFILE << "MakeRootMoveFilter about to return a list of moves that must not be played, this length of this list is: " << root_moves.size();
   return root_moves;
 }
 

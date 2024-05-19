@@ -153,7 +153,7 @@ void SelfPlayGame::Play(int white_threads, int black_threads, bool training,
 
     // If endgame, stop.
     if (game_result_ != GameResult::UNDECIDED) break;
-    if (tree_[0]->GetPositionHistory().Last().GetGamePly() >= 450) {
+    if (tree_[0]->GetPositionHistory().Last().GetGamePly() >= 4500) {
       adjudicated_ = true;
       // game_result_ = GameResult::DRAW;
       game_result_ = tree_[0]->GetPositionHistory().ComputeGameResultRmobility();
