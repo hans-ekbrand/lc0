@@ -155,6 +155,7 @@ void Validate(const std::vector<V7TrainingData>& fileContents) {
     DataAssert(data.root_d >= 0.0f && data.root_d <= 1.0f);
     DataAssert(data.best_q >= -1.0f && data.best_q <= 1.0f);
     DataAssert(data.root_q >= -1.0f && data.root_q <= 1.0f);
+    // std::cout << "root_m: " << data.root_m << " best_m: " << data.best_m << " plies left: " << data.plies_left << " \n";
     DataAssert(data.root_m >= 0.0f);
     DataAssert(data.best_m >= 0.0f);
     DataAssert(data.plies_left >= 0.0f);
@@ -235,6 +236,7 @@ void Validate(const std::vector<V7TrainingData>& fileContents,
     // If real v6 data, can confirm that played_idx matches the inferred move.
     if (fileContents[i].visits > 0) {
       if (fileContents[i].played_idx != moves[i].as_nn_index(transform)) {
+	std::cout << "mismatch between moves and fileContents given to Validate() at position " << i << " move played: " << fileContents[i].played_idx << " move in movelist: " << moves[i].as_nn_index(transform) << "\n";
         throw Exception("Move performed is not listed as played.");
       }
     }
@@ -427,15 +429,19 @@ void ChangeInputFormat(int newInputFormat, V7TrainingData* data,
 }
 
 int ResultForData(const V7TrainingData& data) {
-  if(data.result_q > 0){
+  if(data.result_q < 0){
     return -1;
   }
   if(data.result_q == 0){
     return 0;
   }
-  if(data.result_q < 0){
-    return 1;
+  // Must be greater than 0, but having a simple if clause make the compiler warn about control reaches end of non-void function [-Wreturn-type]
+  // if(data.result_q > 0){
+  if (! (data.result_q > 0)) {
+    std::cout << "Strange Q value found: " << data.result_q << "\n";
+    throw Exception("Range Violation");
   }
+  return 1;
 }
 
 std::string AsNnueString(const Position& p, Move m, float q, int result) {
@@ -477,7 +483,9 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       while (reader.ReadChunk(&data)) {
         fileContents.push_back(data);
       }
+      // std::cout << "number of chunks (moves) found: " << fileContents.size() << "\n";
       Validate(fileContents);
+      // std::cout << "First check passed \n";      
       MoveList moves;
       for (int i = 1; i < fileContents.size(); i++) {
         moves.push_back(
@@ -487,6 +495,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         // move so need to mirror them all to be applicable to apply to the
         // position before.
         moves.back().Mirror();
+	// std::cout << "stored move " << moves.back().as_string() << ". ";
       }
       Validate(fileContents, moves);
       games += 1;
@@ -623,7 +632,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                     &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
-      for (int i = 0; i < moves.size(); i++) {
+      for (long unsigned int i = 0; i < moves.size(); i++) {
         history.Append(moves[i]);
         const auto& board = history.Last().GetBoard();
         if (board.castlings().no_legal_castle() &&
@@ -723,7 +732,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 	    // Only rescore if win/loss
             if (new_score != 0) {
               fileContents[i + 1].result_d = 0.0f;
-	      // std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score);
+	      // std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score) << ". " ;
 	      fileContents[i + 1].result_q = static_cast<float>(new_score);
 	    }
           }
@@ -753,9 +762,9 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
             // at startup.
             if (gaviotaEnabled && maybe_boost.size() > 1 &&
                 (board.ours() | board.theirs()).count() <= 5) {
-              std::vector<int> dtms;
+              std::vector<unsigned int> dtms;
               dtms.resize(maybe_boost.size());
-              int mininum_dtm = 1000;
+              unsigned int mininum_dtm = 1000;
               // Only safe moves being considered, boost the smallest dtm
               // amongst them.
               for (auto& move : maybe_boost) {
@@ -842,7 +851,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
                       &board, &rule50ply, &gameply);
         history.Reset(board, rule50ply, gameply);
         int last_rescore = 0;
-        for (int i = 0; i < moves.size(); i++) {
+        for (long unsigned int i = 0; i < moves.size(); i++) {
           history.Append(moves[i]);
           const auto& board = history.Last().GetBoard();
 
@@ -975,7 +984,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                       &board, &rule50ply, &gameply);
         history.Reset(board, rule50ply, gameply);
-        for (int i = 0; i < moves.size(); i++) {
+        for (long unsigned int i = 0; i < moves.size(); i++) {
           history.Append(moves[i]);
           const auto& board = history.Last().GetBoard();
           if (board.castlings().no_legal_castle() &&
@@ -1042,7 +1051,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                       &board, &rule50ply, &gameply);
         history.Reset(board, rule50ply, gameply);
-        for (int i = 0; i < moves.size(); i++) {
+        for (long unsigned int i = 0; i < moves.size(); i++) {
           history.Append(moves[i]);
           const auto& board = history.Last().GetBoard();
           if (board.castlings().no_legal_castle() &&
@@ -1114,7 +1123,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
                       &board, &rule50ply, &gameply);
         history.Reset(board, rule50ply, gameply);
         ChangeInputFormat(newInputFormat, &fileContents[0], history);
-        for (int i = 0; i < moves.size(); i++) {
+        for (long unsigned int i = 0; i < moves.size(); i++) {
           history.Append(moves[i]);
           ChangeInputFormat(newInputFormat, &fileContents[i + 1], history);
         }
@@ -1123,11 +1132,13 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       if (!outputDir.empty()) {
         std::string fileName = file.substr(file.find_last_of("/\\") + 1);
         TrainingDataWriter writer(outputDir + "/" + fileName);
-	// std::cout << "Ready rescoring this game, now follows a list of q values";
+	// std::cout << "Ready rescoring this game, now follows a list of q values: ";
+	int i = 0;
         for (auto chunk : fileContents) {
           // Don't save chunks that just provide move history.
           if ((chunk.invariance_info & 64) == 0) {
-	    // std::cout << chunk.result_q << " ";
+	    // std::cout << "i:" << i << " q:" << chunk.result_q << " ";
+	    i++;
             writer.WriteChunk(chunk);
           }
         }
@@ -1148,7 +1159,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         PopulateBoard(format, PlanesFromTrainingData(fileContents[0]), &board,
                       &rule50ply, &gameply);
         history.Reset(board, rule50ply, gameply);
-        for (int i = 0; i < fileContents.size(); i++) {
+        for (long unsigned int i = 0; i < fileContents.size(); i++) {
           auto chunk = fileContents[i];
           Position p = history.Last();
           if (chunk.visits > 0) {
@@ -1193,7 +1204,7 @@ void ProcessFiles(const std::vector<std::string>& files,
                   int newInputFormat, int offset, int mod,
                   std::string nnue_plain_file, ProcessFileFlags flags) {
   std::cerr << "Thread: " << offset << " starting" << std::endl;
-  for (int i = offset; i < files.size(); i += mod) {
+  for (long unsigned int i = offset; i < files.size(); i += mod) {
     if (files[i].rfind(".gz") != files[i].size() - 3) {
       std::cerr << "Skipping: " << files[i] << std::endl;
       continue;
@@ -1213,7 +1224,7 @@ void BuildSubs(const std::vector<std::string>& files) {
     }
     Validate(fileContents);
     MoveList moves;
-    for (int i = 1; i < fileContents.size(); i++) {
+    for (long unsigned int i = 1; i < fileContents.size(); i++) {
       moves.push_back(
           DecodeMoveFromInput(PlanesFromTrainingData(fileContents[i]),
                               PlanesFromTrainingData(fileContents[i - 1])));
@@ -1236,7 +1247,7 @@ void BuildSubs(const std::vector<std::string>& files) {
     history.Reset(board, rule50ply, gameply);
     uint64_t rootHash = HashCat(board.Hash(), rule50ply);
     PolicySubNode* rootNode = &policy_subs[rootHash];
-    for (int i = 0; i < fileContents.size(); i++) {
+    for (long unsigned int i = 0; i < fileContents.size(); i++) {
       if ((fileContents[i].invariance_info & 64) == 0) {
         rootNode->active = true;
         for (int j = 0; j < 1858; j++) {
@@ -1343,7 +1354,7 @@ void RescoreLoop::RunLoop() {
       options_.GetOptionsDict().Get<std::string>(kPolicySubsDirId);
   if (policySubsDir.size() != 0) {
     auto policySubFiles = GetFileList(policySubsDir);
-    for (int i = 0; i < policySubFiles.size(); i++) {
+    for (long unsigned int i = 0; i < policySubFiles.size(); i++) {
       policySubFiles[i] = policySubsDir + "/" + policySubFiles[i];
     }
     BuildSubs(policySubFiles);
@@ -1359,11 +1370,11 @@ void RescoreLoop::RunLoop() {
     std::cerr << "No files to process" << std::endl;
     return;
   }
-  for (int i = 0; i < files.size(); i++) {
+  for (long unsigned int i = 0; i < files.size(); i++) {
     files[i] = inputDir + "/" + files[i];
   }
   float dtz_boost = options_.GetOptionsDict().Get<float>(kMinDTZBoostId);
-  int threads = options_.GetOptionsDict().Get<int>(kThreadsId);
+  long unsigned int threads = options_.GetOptionsDict().Get<int>(kThreadsId);
   ProcessFileFlags flags;
   flags.delete_files = options_.GetOptionsDict().Get<bool>(kDeleteFilesId);
   flags.nnue_best_score = options_.GetOptionsDict().Get<bool>(kNnueBestScoreId);
@@ -1387,7 +1398,7 @@ void RescoreLoop::RunLoop() {
             flags);
       });
     }
-    for (int i = 0; i < threads_.size(); i++) {
+    for (long unsigned int i = 0; i < threads_.size(); i++) {
       threads_[i].join();
     }
 
