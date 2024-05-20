@@ -133,7 +133,7 @@ void DataAssert(bool check_result) {
 void Validate(const std::vector<V7TrainingData>& fileContents) {
   if (fileContents.empty()) throw Exception("Empty File");
 
-  for (int i = 0; i < fileContents.size(); i++) {
+  for (long unsigned int i = 0; i < fileContents.size(); i++) {
     auto& data = fileContents[i];
     DataAssert(
         data.input_format ==
@@ -187,9 +187,9 @@ void Validate(const std::vector<V7TrainingData>& fileContents) {
     DataAssert(data.result_d >= 0 && data.result_q <= 1);
     DataAssert(data.rule50_count >= 0 && data.rule50_count <= 100);
     float sum = 0.0f;
-    for (int j = 0; j < sizeof(data.probabilities) / sizeof(float); j++) {
+    for (long unsigned int j = 0; j < sizeof(data.probabilities) / sizeof(float); j++) {
       float prob = data.probabilities[j];
-      DataAssert(prob >= 0.0f && prob <= 1.0f || prob == -1.0f ||
+      DataAssert((prob >= 0.0f && prob <= 1.0f) || prob == -1.0f ||
                  std::isnan(prob));
       if (prob >= 0.0f) {
         sum += prob;
@@ -211,9 +211,9 @@ void Validate(const std::vector<V7TrainingData>& fileContents) {
     DataAssert(data.played_d >= 0.0f && data.played_d <= 1.0f);
     DataAssert(data.played_m >= 0.0f);
     DataAssert(std::isnan(data.orig_q) ||
-               data.orig_q >= -1.0f && data.orig_q <= 1.0f);
+               ((data.orig_q >= -1.0f) && (data.orig_q <= 1.0f)));
     DataAssert(std::isnan(data.orig_d) ||
-               data.orig_d >= 0.0f && data.orig_d <= 1.0f);
+               ((data.orig_d >= 0.0f) && (data.orig_d <= 1.0f)));
     DataAssert(std::isnan(data.orig_m) || data.orig_m >= 0.0f);
     // TODO: if visits > 0 - assert best_idx/played_idx are valid in
     // probabilities.
@@ -231,7 +231,7 @@ void Validate(const std::vector<V7TrainingData>& fileContents,
   PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]), &board,
                 &rule50ply, &gameply);
   history.Reset(board, rule50ply, gameply);
-  for (int i = 0; i < moves.size(); i++) {
+  for (long unsigned int i = 0; i < moves.size(); i++) {
     int transform = TransformForPosition(input_format, history);
     // If real v6 data, can confirm that played_idx matches the inferred move.
     if (fileContents[i].visits > 0) {
@@ -487,7 +487,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       Validate(fileContents);
       // std::cout << "First check passed \n";      
       MoveList moves;
-      for (int i = 1; i < fileContents.size(); i++) {
+      for (long unsigned int i = 1; i < fileContents.size(); i++) {
         moves.push_back(
             DecodeMoveFromInput(PlanesFromTrainingData(fileContents[i]),
                                 PlanesFromTrainingData(fileContents[i - 1])));
@@ -512,7 +512,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       uint64_t rootHash = HashCat(board.Hash(), rule50ply);
       if (policy_subs.find(rootHash) != policy_subs.end()) {
         PolicySubNode* rootNode = &policy_subs[rootHash];
-        for (int i = 0; i < fileContents.size(); i++) {
+        for (long unsigned int i = 0; i < fileContents.size(); i++) {
           if (rootNode->active) {
             /* Some logic for choosing a softmax to apply to better align the
             new policy with the old policy...
@@ -556,7 +556,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
               fileContents[i].probabilities[j] = rootNode->policy[j];
             }
           }
-          if (i < fileContents.size() - 1) {
+          if (static_cast<long>(i) < static_cast<long>(fileContents.size() - 1)) {
             int transform = TransformForPosition(input_format, history);
             int idx = moves[i].as_nn_index(transform);
             if (rootNode->children[idx] == nullptr) {
@@ -571,10 +571,10 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                     &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
-      int last_rescore = -1;
+      long last_rescore = -1;
       orig_counts[ResultForData(fileContents[0]) + 1]++;
       fixed_counts[ResultForData(fileContents[0]) + 1]++;
-      for (int i = 0; i < moves.size(); i++) {
+      for (long unsigned int i = 0; i < moves.size(); i++) {
         history.Append(moves[i]);
         const auto& board = history.Last().GetBoard();
         if (board.castlings().no_legal_castle() &&
@@ -594,9 +594,9 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
             }
 	    if(score_to_apply != 0){ // Rmobility: only fix if won or lost
 	      // std::cout << "Found a TB win/loss at position: " << i << std::endl;
-	      for (int j = i + 1; j > last_rescore; j--) {
+	      for (long j = i + 1; j > last_rescore; j--) {
 		if (ResultForData(fileContents[j]) != score_to_apply) {
-		  if (j == i + 1 && last_rescore == -1) {
+		  if (j == static_cast<long>(i + 1) && last_rescore == -1) {
 		    fixed_counts[ResultForData(fileContents[0]) + 1]--;
 		    bool flip = (i % 2) == 0;
 		    fixed_counts[(flip ? -score_to_apply : score_to_apply) + 1]++;
@@ -1137,12 +1137,12 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         for (auto chunk : fileContents) {
           // Don't save chunks that just provide move history.
           if ((chunk.invariance_info & 64) == 0) {
-	    // std::cout << "i:" << i << " q:" << chunk.result_q << " ";
+	    std::cout << "i:" << i << " q:" << chunk.result_q << " ";
 	    i++;
             writer.WriteChunk(chunk);
           }
         }
-	// std::cout << "\n";
+	std::cout << "\n";
       }
 
       // Output data in Stockfish plain format.
