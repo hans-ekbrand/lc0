@@ -127,15 +127,15 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
       result = static_cast<GameResult>(result_as_int);
       if(best_goal.white_is_best_player){
 	if(best_goal.is_in_check){
-	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " and in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << ").";
+	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " and in check *after* ply: " << positions_.size() - i << " (which is position: " << positions_.size() - i << ").";
 	} else {
-	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " not in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
+	  LOGFILE << "White reached a new highest goal. number of legal moves for black: " << best_goal.number_of_legal_moves << " not in check *after* ply: " << positions_.size() - i << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
 	}
       } else {
 	if(best_goal.is_in_check){
-	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " and in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << ").";
+	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " and in check *after* ply: " << positions_.size() - i << " (which is position: " << positions_.size() - i << ").";
 	} else {
-	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " not in check after ply: " << positions_.size() - i + 1 << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
+	  LOGFILE << "Black reached a new highest goal. number of legal moves for white: " << best_goal.number_of_legal_moves << " not in check *after* ply: " << positions_.size() - i << " (which is position: " << positions_.size() - i << " based on position.size(), and the index used in GetPositionAt is: " << GetLength() - i << ".";
 	}
       }
     }
@@ -294,15 +294,14 @@ int PositionHistory::LocatePeakRmobilityScore() const {
       best_goal.number_of_legal_moves = legal_moves.size();
       best_goal.is_in_check = board.IsUnderCheck();
       best_goal.white_is_best_player = is_black_to_move;
-      index_of_peak_rmobility_score = positions_.size() - i + 1; // +1 because startposition is the
-      // position for ply 1.
+      index_of_peak_rmobility_score = positions_.size() - i; // This returns the index that points the last training data position, ie. the position *before* the move that lead up to the "final" position.
       // This fits the order defined in position.h line 97
       result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
     }
     // switch player for the next iteration
     is_black_to_move = !is_black_to_move;
   }
-  LOGFILE << "find peak r-mobility() found result_as_int = " << +result_as_int << " and peak position at " << index_of_peak_rmobility_score;
+  LOGFILE << "find peak r-mobility() found result_as_int = " << +result_as_int << " and peak score after ply " << index_of_peak_rmobility_score;
   return index_of_peak_rmobility_score;
 }
 

@@ -133,7 +133,19 @@ void SelfPlayLoop::SendGameInfo(const GameInfo& info) {
   }
   if (!info.moves.empty()) {
     res += " moves";
-    for (const auto& move : info.moves) res += " " + move.as_string();
+    int i=0;
+    for (const auto& move : info.moves) {
+      if(info.last_ply){
+	if(i < info.last_ply){
+	  // Print the move since it happened before peak in r-mobility score.
+	  res += " " + move.as_string();
+	  i++;
+	} 
+      } else {
+	// Unconditionally print all moves
+	res += " " + move.as_string();
+      }
+    }
   }
   if (!info.initial_fen.empty() &&
       info.initial_fen != ChessBoard::kStartposFen) {

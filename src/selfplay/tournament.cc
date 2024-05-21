@@ -398,6 +398,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 
   // If game was aborted, it's still undecided.
   if (game.GetGameResult() != GameResult::UNDECIDED) {
+
     // Game callback.
     GameInfo game_info;
     game_info.game_result = game.GetGameResult();
@@ -406,10 +407,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     game_info.initial_fen = opening.start_fen;
     game_info.moves = game.GetMoves();
     game_info.play_start_ply = game.GetStartPly();
-    if (!enable_resign) {
-      game_info.min_false_positive_threshold =
-          game.GetWorstEvalForWinnerOrDraw();
-    }
+
     if (kTraining &&
         game_info.play_start_ply < static_cast<int>(game_info.moves.size())) {
       // Locate the peak mobility score and discard moves after the best r-mobility score, unless the last position
@@ -430,9 +428,14 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// moves up to this point.
 
 	interesting_part_of_the_game = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
-	LOGFILE << "in PlayOneGame(), found the peak r mobility score at" << interesting_part_of_the_game;	
+	LOGFILE << "in PlayOneGame(), found the peak r mobility score at" << interesting_part_of_the_game;
+	game_info.last_ply = interesting_part_of_the_game + 1; // Include the move that lead to the best r-mobility score.	
       }
-      
+
+      if (!enable_resign) {
+	game_info.min_false_positive_threshold =
+          game.GetWorstEvalForWinnerOrDraw();
+      }
       TrainingDataWriter writer(game_number);
       LOGFILE << "starting to save the game";
       game.WriteTrainingData(&writer, interesting_part_of_the_game);
@@ -441,6 +444,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
       LOGFILE << "Finalised the chunk file";
       game_info.training_filename = writer.GetFileName();
     }
+    
     game_callback_(game_info);
 
     // Update tournament stats.

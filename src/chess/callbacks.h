@@ -110,6 +110,10 @@ struct GameInfo {
   std::vector<Move> moves;
   // Ply within moves that the game actually started.
   int play_start_ply;
+  // Last ply leading up to the position that was used to assign the r-mobility score.
+  // The position after this ply is thus the position with the best r-mobility score after the last zeroing move.
+  // only set if the game was 1. not ended by a stalemate or a checkmate and 2. reached a r-mobility score other than 0.
+  std::optional<int> last_ply;
   // Index of the game in the tournament (0-based).
   int game_id = -1;
   // The color of the player1, if known.
