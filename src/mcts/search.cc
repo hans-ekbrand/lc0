@@ -706,6 +706,14 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
     }
   }
 
+  // Apply zero temp when the "opening" is finished.
+  const int k = 5;
+  const auto& board = played_history_.Last().GetBoard();
+  if ((board.ours() | board.theirs()).count() <= k) {
+    LOGFILE << "Setting temperature to zero since total piece count is less than: " << k << "\n";
+    temperature = 0.0;
+  }
+
   auto bestmove_edge = temperature
                            ? GetBestRootChildWithTemperature(temperature)
                            : GetBestChildNoTemperature(root_node_, 0);
@@ -941,6 +949,12 @@ void Search::PopulateCommonIterationStats(IterationStats* stats) {
   stats->num_losing_edges = 0;
   stats->time_usage_hint_ = IterationStats::TimeUsageHint::kNormal;
   stats->mate_depth = std::numeric_limits<int>::max();
+
+  // Set desired number of visits (for selfplay) based on number of pieces left
+  const auto& board = played_history_.Last().GetBoard();
+  if ((board.ours() | board.theirs()).count() <= 5){
+    stats->desired_number_of_visits = 32;
+  }
 
   // If root node hasn't finished first visit, none of this code is safe.
   if (root_node_->GetN() > 0) {

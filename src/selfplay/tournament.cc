@@ -428,7 +428,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// moves up to this point.
 
 	interesting_part_of_the_game = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
-	LOGFILE << "in PlayOneGame(), found the peak r mobility score at" << interesting_part_of_the_game;
+	LOGFILE << "in PlayOneGame(), found the peak r mobility score at: " << interesting_part_of_the_game;
 	game_info.last_ply = interesting_part_of_the_game + 1; // Include the move that lead to the best r-mobility score.	
       }
 

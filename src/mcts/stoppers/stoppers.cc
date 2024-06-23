@@ -61,9 +61,10 @@ bool VisitsStopper::ShouldStop(const IterationStats& stats,
   if (populate_remaining_playouts_) {
     hints->UpdateEstimatedRemainingPlayouts(nodes_limit_ - stats.total_nodes);
   }
-  if (stats.total_nodes >= nodes_limit_) {
+  auto my_limit = std::max(stats.desired_number_of_visits, nodes_limit_);
+  if (stats.total_nodes >= my_limit) {
     LOGFILE << "Stopped search: Reached visits limit: " << stats.total_nodes
-            << ">=" << nodes_limit_;
+            << ">=" << my_limit;
     return true;
   }
   return false;

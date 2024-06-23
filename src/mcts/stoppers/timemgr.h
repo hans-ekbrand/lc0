@@ -58,6 +58,7 @@ struct IterationStats {
 
   enum class TimeUsageHint { kNormal, kNeedMoreTime, kImmediateMove };
   TimeUsageHint time_usage_hint_ = TimeUsageHint::kNormal;
+  int64_t desired_number_of_visits = 0; // used to dynamically set search limits in self play.
 };
 
 // Hints from stoppers back to the search engine. Currently include:
