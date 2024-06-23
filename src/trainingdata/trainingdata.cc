@@ -106,7 +106,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: 107 black_to_move White_won (strange?) checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 109 white_to_move White_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 109 ply: " << it + 1 << " white_to_move White_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_STALEMATE) {
@@ -177,7 +177,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: 178 black_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 180 white_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 180 ply: " << it + 1 << " white_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G4_0) {
@@ -217,7 +217,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G5_5 \n";
 	  } else {
-	    std::cout << "Result: 220 white_to_move White_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 220 ply: " << it + 1 << " white_to_move White_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G6_0) {
@@ -227,7 +227,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G6_0 \n";
 	  } else {
-	    std::cout << "Result: 230 white_to_move White_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 230 ply: " << it + 1 << " white_to_move White_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G6_5) {
@@ -237,7 +237,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G6_5 \n";
 	  } else {
-	    std::cout << "Result: 240 white_to_move White_won G6_5 \n";
+	    std::cout << "Result: 240 ply: " << it + 1 << " white_to_move White_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G7_0) {
@@ -247,7 +247,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G7_0 \n";
 	  } else {
-	    std::cout << "Result: 250 white_to_move White_won G7_0 \n";
+	    std::cout << "Result: 250 ply: " << it + 1 << " white_to_move White_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G7_5) {
@@ -257,7 +257,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G7_5 \n";
 	  } else {
-	    std::cout << "Result: 260 white_to_move White_won G7_5 \n";
+	    std::cout << "Result: 260 ply: " << it + 1 << " white_to_move White_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G8_0) {
@@ -267,7 +267,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G8_0 \n";
 	  } else {
-	    std::cout << "Result: 270 white_to_move White_won G8_0 \n";
+	    std::cout << "Result: 270 ply: " << it + 1 << " white_to_move White_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G8_5) {
@@ -277,7 +277,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G8_5 \n";
 	  } else {
-	    std::cout << "Result: 280 white_to_move White_won G8_5 \n";
+	    std::cout << "Result: 280 ply: " << it + 1 << " white_to_move White_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G9_0) {
@@ -287,7 +287,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G9_0 \n";
 	  } else {
-	    std::cout << "Result: 290 white_to_move White_won G9_0 \n";
+	    std::cout << "Result: 290 ply: " << it + 1 << " white_to_move White_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G9_5) {
@@ -297,7 +297,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G9_5 \n";
 	  } else {
-	    std::cout << "Result: 300 white_to_move White_won G9_5 \n";
+	    std::cout << "Result: 300 ply: " << it + 1 << " white_to_move White_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_WON) {
@@ -307,7 +307,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: 308 white_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 310 black_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 310 ply: " << it + 1 << " black_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_STALEMATE) {
@@ -317,7 +317,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: 318 white_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 320 black_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 320 ply: " << it + 1 << " black_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G1_0) {
@@ -327,7 +327,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: 328 white_to_move Black_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 330 black_to_move Black_won G1_0 \n";	  
+	    std::cout << "Result: 330 ply: " << it + 1 << " black_to_move Black_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G1_5) {
@@ -337,7 +337,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: 338 white_to_move Black_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 340 black_to_move Black_won G1_5 \n";	  
+	    std::cout << "Result: 340 ply: " << it + 1 << " black_to_move Black_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G2_0) {
@@ -347,7 +347,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G2_0 \n";
 	  } else {
-	    std::cout << "Result: 350 black_to_move Black_won G2_0 \n";	  
+	    std::cout << "Result: 350 ply: " << it + 1 << " black_to_move Black_won G2_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G2_5) {
@@ -357,7 +357,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: 358 white_to_move Black_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 360 black_to_move Black_won G2_5 \n";	  
+	    std::cout << "Result: 360 ply: " << it + 1 << " black_to_move Black_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G3_0) {
@@ -387,7 +387,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G4_0 \n";
 	  } else {
-	    std::cout << "Result: 390 black_to_move Black_won G4_0 \n";	  
+	    std::cout << "Result: 390 ply: " << it + 1 << " black_to_move Black_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G4_5) {
@@ -397,7 +397,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G4_5 \n";
 	  } else {
-	    std::cout << "Result: 400 black_to_move Black_won G4_5 \n";	  
+	    std::cout << "Result: 400 ply: " << it + 1 << " black_to_move Black_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G5_0) {
@@ -407,7 +407,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G5_0 \n";
 	  } else {
-	    std::cout << "Result: 410 black_to_move Black_won G5_0 \n";	  
+	    std::cout << "Result: 410 ply: " << it + 1 << " black_to_move Black_won G5_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G5_5) {
@@ -417,7 +417,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G5_5 \n";
 	  } else {
-	    std::cout << "Result: 420 black_to_move Black_won G5_5 \n";	  
+	    std::cout << "Result: 420 ply: " << it + 1 << " black_to_move Black_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G6_0) {
@@ -427,7 +427,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G6_0 \n";
 	  } else {
-	    std::cout << "Result: 430 black_to_move Black_won G6_0 \n";	  
+	    std::cout << "Result: 430 ply: " << it + 1 << " black_to_move Black_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G6_5) {
@@ -437,7 +437,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G6_5 \n";
 	  } else {
-	    std::cout << "Result: 440 black_to_move Black_won G6_5 \n";	  
+	    std::cout << "Result: 440 ply: " << it + 1 << " black_to_move Black_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G7_0) {
@@ -447,7 +447,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G7_0 \n";
 	  } else {
-	    std::cout << "Result: 450 black_to_move Black_won G7_0 \n";	  
+	    std::cout << "Result: 450 ply: " << it + 1 << " black_to_move Black_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G7_5) {
@@ -457,7 +457,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G7_5 \n";
 	  } else {
-	    std::cout << "Result: 460 black_to_move Black_won G7_5 \n";	  
+	    std::cout << "Result: 460 ply: " << it + 1 << " black_to_move Black_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G8_0) {
@@ -467,7 +467,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G8_0 \n";
 	  } else {
-	    std::cout << "Result: 470 black_to_move Black_won G8_0 \n";	  
+	    std::cout << "Result: 470 ply: " << it + 1 << " black_to_move Black_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G8_5) {
@@ -477,7 +477,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G8_5 \n";
 	  } else {
-	    std::cout << "Result: 480 black_to_move Black_won G8_5 \n";	  
+	    std::cout << "Result: 480 ply: " << it + 1 << " black_to_move Black_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G9_0) {
@@ -487,7 +487,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G9_0 \n";
 	  } else {
-	    std::cout << "Result: 490 black_to_move Black_won G9_0 \n";	  
+	    std::cout << "Result: 490 ply: " << it + 1 << " black_to_move Black_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G9_5) {
@@ -497,7 +497,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G9_5 \n";
 	  } else {
-	    std::cout << "Result: 500 black_to_move Black_won G9_5 \n";	  
+	    std::cout << "Result: 500 ply: " << it + 1 << " black_to_move Black_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else {
