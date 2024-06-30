@@ -575,20 +575,20 @@ void Search::SendMovesStats() const REQUIRES(counters_mutex_) {
                      return info;
                    });
     uci_responder_->OutputThinkingInfo(&infos);
-  } else {
-    LOGFILE << "=== Move stats:";
-    for (const auto& line : move_stats) LOGFILE << line;
+  // } else {
+  //   LOGFILE << "=== Move stats:";
+  //   for (const auto& line : move_stats) LOGFILE << line;
   }
   for (auto& edge : root_node_->Edges()) {
     if (!(edge.GetMove(played_history_.IsBlackToMove()) == final_bestmove_)) {
       continue;
     }
-    if (edge.HasNode()) {
-      LOGFILE << "--- Opponent moves after: " << final_bestmove_.as_string();
-      for (const auto& line : GetVerboseStats(edge.node())) {
-        LOGFILE << line;
-      }
-    }
+    // if (edge.HasNode()) {
+    //   LOGFILE << "--- Opponent moves after: " << final_bestmove_.as_string();
+    //   for (const auto& line : GetVerboseStats(edge.node())) {
+    //     LOGFILE << line;
+    //   }
+    // }
   }
 }
 

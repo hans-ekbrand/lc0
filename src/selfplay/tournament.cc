@@ -456,8 +456,8 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// If the game ended in a mate, and the game never reached a position with only k pieces on the board, adjust the index_of_first_position_to_train_on so that the position before
 	// mating move is saved.
 	if(((game_info.game_result == GameResult::WHITE_WON || game_info.game_result == GameResult::BLACK_WON)) && index_of_first_position_with_k_pieces > game.GetGameTree()->GetPositionHistory().Last().GetGamePly()){
-	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
-	  index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
+	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	  index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
 	}
       }
 

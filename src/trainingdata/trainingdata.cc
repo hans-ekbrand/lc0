@@ -94,8 +94,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
   // float m_estimate = training_data_.back().best_m + index_of_last_position_to_save;
   float m_estimate = index_of_last_position_to_save - 1;
   
-  for (int it = index_of_first_position_to_save; it <= index_of_last_position_to_save; ++it) {
-    std::cout << "In trainingdata.cc save loop: it = " << it << "\n";
+  for (int it = index_of_first_position_to_save; it < index_of_last_position_to_save; ++it) {
+    // std::cout << "In trainingdata.cc save loop: it = " << it << "\n";
     auto chunk = training_data_[it];
       bool black_to_move = chunk.side_to_move_or_enpassant;
       if (IsCanonicalFormat(static_cast<pblczero::NetworkFormat::InputFormat>(
