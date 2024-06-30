@@ -102,7 +102,7 @@ class V6TrainingDataArray {
 
   // Writes training data to a file.
   void Write(TrainingDataWriter* writer, GameResult result,
-             bool adjudicated, long unsigned int number_of_chunks_to_write) const ;
+             bool adjudicated, int index_of_first_position_to_save, int index_of_last_position_to_save) const ;
 
  private:
   std::vector<V6TrainingData> training_data_;

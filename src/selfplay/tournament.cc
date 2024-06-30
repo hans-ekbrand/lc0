@@ -410,10 +410,22 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 
     if (kTraining &&
         game_info.play_start_ply < static_cast<int>(game_info.moves.size())) {
+
+      // Determine the number of moves played with at most k pieces on the board.
+      int k = 5;
+      int index_of_first_position_with_k_pieces = game.GetGameTree()->GetPositionHistory().IndexOfFirstPositionWithKPieces(k);
+      // includes the moves in the opening book. (start_ply)
+      // if no such position was found, 1 + index of last position is returned. which gives a negative width range, which makes sure no training data is saved.
+      
       // Locate the peak mobility score and discard moves after the best r-mobility score, unless the last position
       // has a game outcome in DRAW WHITE_WON, WHITE_STALEMATE BLACK_WON BLACK_STALEMATE
 
-      int interesting_part_of_the_game = 0;
+      int index_of_first_position_to_train_on = std::max(0, index_of_first_position_with_k_pieces - game_info.play_start_ply);
+
+      LOGFILE << "in PlayOneGame(), calculated index of first position to train on: " << index_of_first_position_to_train_on << " based on index_of_first_position_with_k_pieces: " << index_of_first_position_with_k_pieces <<
+	" and start_ply: " << game_info.play_start_ply;
+      
+      int index_of_last_position_to_train_on = 0; // A zero value on this variable implies saving until the last available training data chunk.
 
       if (game_info.game_result != GameResult::DRAW &&
 	  game_info.game_result != GameResult::WHITE_WON &&
@@ -421,15 +433,32 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	  game_info.game_result != GameResult::BLACK_WON &&
 	  game_info.game_result != GameResult::BLACK_STALEMATE) {
 
-	// From the last position find the last zeroing move. From the
-	// last zeroing move, find the first position with same
-	// outcome as the game outcome discard the rest of the moves
-	// in the history, so that game.GetMoves() only return the
-	// moves up to this point.
+	// From the last zeroing move and onwards, find the first
+	// position with same outcome as the game outcome and record
+	// this index of this position to make sure
+	// WriteTrainingData() discards the rest of the moves in the
+	// training_data_
 
-	interesting_part_of_the_game = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
-	LOGFILE << "in PlayOneGame(), found the peak r mobility score at: " << interesting_part_of_the_game;
-	game_info.last_ply = interesting_part_of_the_game + 1; // Include the move that lead to the best r-mobility score.	
+	int index_of_r_mobility_peak = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
+	// -1 since the winner is the side who made the winning move,
+	// not the side to move in the final position, and the last
+	// position to train on is the position from which the winning
+	// move was made.
+	index_of_last_position_to_train_on = std::max(0, index_of_r_mobility_peak - 1 - game_info.play_start_ply); // If r-mobility peak was reached before play_start_ply, then don't save any training data, since the game outcome is not necessarily valid for those positions.
+	
+	LOGFILE << "in PlayOneGame(), calculated index of last position to train on: " << index_of_last_position_to_train_on;
+	game_info.last_ply = index_of_r_mobility_peak; // Includes the winning move.
+
+      } else {
+	// The game ended at the peak
+	index_of_last_position_to_train_on = game_info.moves.size() - game_info.play_start_ply;
+	LOGFILE << "in PlayOneGame(), last position to train on is simply the position before the last move in the game - start ply: " << index_of_last_position_to_train_on;
+	// If the game ended in a mate, and the game never reached a position with only k pieces on the board, adjust the index_of_first_position_to_train_on so that the position before
+	// mating move is saved.
+	if(((game_info.game_result == GameResult::WHITE_WON || game_info.game_result == GameResult::BLACK_WON)) && index_of_first_position_with_k_pieces > game.GetGameTree()->GetPositionHistory().Last().GetGamePly()){
+	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
+	  index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
+	}
       }
 
       if (!enable_resign) {
@@ -437,11 +466,8 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
           game.GetWorstEvalForWinnerOrDraw();
       }
       TrainingDataWriter writer(game_number);
-      LOGFILE << "starting to save the game";
-      game.WriteTrainingData(&writer, interesting_part_of_the_game);
-      LOGFILE << "saved all moves to of the game";      
+      game.WriteTrainingData(&writer, index_of_first_position_to_train_on, index_of_last_position_to_train_on);
       writer.Finalize();
-      LOGFILE << "Finalised the chunk file";
       game_info.training_filename = writer.GetFileName();
     }
     

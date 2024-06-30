@@ -140,6 +140,9 @@ class PositionHistory {
   GameResult ComputeGameResultRmobility() const;
 
   int LocatePeakRmobilityScore() const;
+
+  // Finds the number of the positions where the number of pieces were at most k. If the game ended before such a position was reached, returns 0
+  int IndexOfFirstPositionWithKPieces(int k) const;
   
   // Finds the endgame state (win/lose/draw/nothing) for the last position.
   GameResult ComputeGameResult() const;

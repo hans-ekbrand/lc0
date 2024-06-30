@@ -343,8 +343,8 @@ void SelfPlayGame::Abort() {
   if (search_) search_->Abort();
 }
 
-void SelfPlayGame::WriteTrainingData(TrainingDataWriter* writer, int number_of_moves_to_actually_save) {
-  training_data_.Write(writer, game_result_, adjudicated_, number_of_moves_to_actually_save);
+void SelfPlayGame::WriteTrainingData(TrainingDataWriter* writer, long unsigned int index_of_first_position_to_save, long unsigned int index_of_last_position_to_save) {
+  training_data_.Write(writer, game_result_, adjudicated_, index_of_first_position_to_save, index_of_last_position_to_save);
 }
 
 std::unique_ptr<ChainedSearchStopper> SelfPlayLimits::MakeSearchStopper()
