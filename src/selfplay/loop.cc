@@ -495,7 +495,8 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         // move so need to mirror them all to be applicable to apply to the
         // position before.
         moves.back().Mirror();
-	// std::cout << "stored move " << moves.back().as_string() << ". ";
+	// std::cout << "Stored the move played in position " << i - 1 << ", which is the difference between position " << i - 1 << " and position " << i << " and the move was: " << moves.back().as_string() << ".\n";
+	// The last move can not be checked this way since it has no position after it, since the final position can not be trained on.
       }
       Validate(fileContents, moves);
       games += 1;
@@ -1137,12 +1138,12 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         for (auto chunk : fileContents) {
           // Don't save chunks that just provide move history.
           if ((chunk.invariance_info & 64) == 0) {
-	    std::cout << "i:" << i << " q:" << chunk.result_q << " ";
+	    // std::cout << "i:" << i << " q:" << chunk.result_q << " ";
 	    i++;
             writer.WriteChunk(chunk);
           }
         }
-	std::cout << "\n";
+	// std::cout << "\n";
       }
 
       // Output data in Stockfish plain format.
