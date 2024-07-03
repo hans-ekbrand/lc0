@@ -414,6 +414,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
       // Determine the number of moves played with at most k pieces on the board.
       int k = 5;
       int index_of_first_position_with_k_pieces = game.GetGameTree()->GetPositionHistory().IndexOfFirstPositionWithKPieces(k);
+      LOGFILE << "game_info.moves.size() is: " << game_info.moves.size();
       // includes the moves in the opening book. (start_ply)
       // if no such position was found, 1 + index of last position is returned. which gives a negative width range, which makes sure no training data is saved.
       
@@ -439,25 +440,25 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// WriteTrainingData() discards the rest of the moves in the
 	// training_data_
 
-	int index_of_r_mobility_peak = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
-	// -1 since the winner is the side who made the winning move,
-	// not the side to move in the final position, and the last
-	// position to train on is the position from which the winning
-	// move was made.
-	index_of_last_position_to_train_on = std::max(0, index_of_r_mobility_peak - 1 - game_info.play_start_ply); // If r-mobility peak was reached before play_start_ply, then don't save any training data, since the game outcome is not necessarily valid for those positions.
+	index_of_last_position_to_train_on = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
+
+	game_info.last_ply = index_of_last_position_to_train_on + 1; // Include the winning move. position is zero based, so if the winning move is ply k, then the last position is k-1, and to counter this, add one here.
+
+	index_of_last_position_to_train_on = std::max(0, index_of_last_position_to_train_on - game_info.play_start_ply); // If r-mobility peak was reached before play_start_ply, then don't save any training data, since the game outcome is not necessarily valid for those positions.
 	
 	LOGFILE << "in PlayOneGame(), calculated index of last position to train on: " << index_of_last_position_to_train_on;
-	game_info.last_ply = index_of_r_mobility_peak; // Includes the winning move.
 
       } else {
-	// The game ended at the peak
-	index_of_last_position_to_train_on = game_info.moves.size() - game_info.play_start_ply;
-	LOGFILE << "in PlayOneGame(), last position to train on is simply the position before the last move in the game - start ply: " << index_of_last_position_to_train_on;
+	// The game ended at the peak, positions are 0 based so in a one ply game, there is only one position, position[0], this is the reason for -1.
+	index_of_last_position_to_train_on = game_info.moves.size() - game_info.play_start_ply - 1;
+	LOGFILE << "in PlayOneGame(), last position to train on is (zero based) the position before the last move in the game - start ply: " << index_of_last_position_to_train_on;
 	// If the game ended in a mate, and the game never reached a position with only k pieces on the board, adjust the index_of_first_position_to_train_on so that the position before
 	// mating move is saved.
 	if(((game_info.game_result == GameResult::WHITE_WON || game_info.game_result == GameResult::BLACK_WON)) && index_of_first_position_with_k_pieces > game.GetGameTree()->GetPositionHistory().Last().GetGamePly()){
-	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
-	  index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	  // LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	  // index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << index_of_last_position_to_train_on << " you might also be interested to know that game.GetGameTree()->GetPositionHistory().Last().GetGamePly() has the value: " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
+	  index_of_first_position_to_train_on = index_of_last_position_to_train_on;
 	}
       }
 
@@ -465,10 +466,15 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	game_info.min_false_positive_threshold =
           game.GetWorstEvalForWinnerOrDraw();
       }
-      TrainingDataWriter writer(game_number);
-      game.WriteTrainingData(&writer, index_of_first_position_to_train_on, index_of_last_position_to_train_on);
-      writer.Finalize();
-      game_info.training_filename = writer.GetFileName();
+      if((index_of_last_position_to_train_on - index_of_first_position_to_train_on) >= 0){
+	TrainingDataWriter writer(game_number);
+	game.WriteTrainingData(&writer, index_of_first_position_to_train_on, index_of_last_position_to_train_on);
+	writer.Finalize();
+	game_info.training_filename = writer.GetFileName();
+      } else {
+	LOGFILE << "in PlayOneGame(), Not saving this game since index of last position to train on (" << index_of_last_position_to_train_on << ") is less than index of first position to train on (" <<
+	  index_of_first_position_to_train_on << "). Stale mate that might be non-optimal, not good training data. Ignore.\n";
+      }
     }
     
     game_callback_(game_info);

@@ -82,10 +82,10 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 
   if (training_data_.empty()) return;
 
-  if((index_of_last_position_to_save - index_of_first_position_to_save) < 0){
-    std::cout << "No training data to save.\n";
-    return;
-  }
+  // if((index_of_last_position_to_save - index_of_first_position_to_save) < 0){
+  //   std::cout << "No training data to save.\n";
+  //   return;
+  // }
 
   std::cout << "Number of positions generated (size of training_data_): " << training_data_.size() << "\n";
   std::cout << "Number of positions to write: " << index_of_last_position_to_save - index_of_first_position_to_save + 1 << " (first position to save at: " << index_of_first_position_to_save <<
@@ -93,8 +93,17 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 
   // float m_estimate = training_data_.back().best_m + index_of_last_position_to_save;
   float m_estimate = index_of_last_position_to_save - 1;
-  
-  for (int it = index_of_first_position_to_save; it < index_of_last_position_to_save; ++it) {
+
+  for (int it = index_of_first_position_to_save; it <= index_of_last_position_to_save; it++) {
+    if(index_of_last_position_to_save - index_of_first_position_to_save == 0){
+      std::cout << "In trainingdata.cc starting saving the game with " << index_of_last_position_to_save - index_of_first_position_to_save + 1 << " positions to save. iterator it = " << it << "\n";      
+    }
+    // if(it == index_of_first_position_to_save){
+    //   std::cout << "In trainingdata.cc starting saving the game with " << index_of_last_position_to_save - index_of_first_position_to_save + 1 << " positions to save.\n";
+    // }
+    // if(it == index_of_last_position_to_save){
+    //   std::cout << "In trainingdata.cc final iteration of saving the game with " << index_of_last_position_to_save - index_of_first_position_to_save + 1 << " positions to save.";
+    // }
     // std::cout << "In trainingdata.cc save loop: it = " << it << "\n";
     auto chunk = training_data_[it];
       bool black_to_move = chunk.side_to_move_or_enpassant;
@@ -105,402 +114,402 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
       if (result == GameResult::WHITE_WON) {
 	chunk.result_q = black_to_move ? -1 : 1;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 107 black_to_move White_won (strange?) checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 109 ply: " << it + 1 << " white_to_move White_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 109 ply: " << it << " white_to_move White_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_STALEMATE) {
 	// for r-mobility the points in https://wiki.chessdom.org/R-Mobility#50-move_rule must be scaled to the range of q [-1, 1], which means multiply by 2, and then subtract 1
 	chunk.result_q = black_to_move ? -0.5 : 0.5; // 0.75 * 2 - 1 = 0.5
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 118 black_to_move White_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 120 ply: " << it + 1 << " white_to_move White_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 120 ply: " << it << " white_to_move White_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G1_0) {
 	chunk.result_q = black_to_move ? -0.25 : 0.25;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
-	    std::cout << "Result: 128 ply: " << it + 1 << " black_to_move White_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 128 ply: " << it << " black_to_move White_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 130 ply: " << it + 1 << " white_to_move White_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 130 ply: " << it << " white_to_move White_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G1_5) {
 	chunk.result_q = black_to_move ? -0.125 : 0.125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 138 black_to_move White_won G1_5 \n";
 	  } else {
-	    std::cout << "Result: 140 ply: " << it + 1 << " white_to_move White_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 140 ply: " << it << " white_to_move White_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G2_0) {
 	chunk.result_q = black_to_move ? -0.0625 : 0.0625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 148 black_to_move White_won G2_0 \n";
 	  } else {
-	    std::cout << "Result: 150 ply: " << it + 1 << " white_to_move White_won G2_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 150 ply: " << it << " white_to_move White_won G2_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G2_5) {
 	chunk.result_q = black_to_move ? -0.03125 : 0.03125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
-	    std::cout << "Result: 158 ply: " << it + 1 << " black_to_move White_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 158 ply: " << it << " black_to_move White_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 160 ply: " << it + 1 << " white_to_move White_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 160 ply: " << it << " white_to_move White_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G3_0) {
 	chunk.result_q = black_to_move ? -0.015625 : 0.015625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
-	    std::cout << "Result: 168 ply: " << it + 1 << " black_to_move White_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 168 ply: " << it << " black_to_move White_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 170 ply: " << it + 1 << " white_to_move White_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 170 ply: " << it << " white_to_move White_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G3_5) {
 	chunk.result_q = black_to_move ? -0.0078125 : 0.0078125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 178 black_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 180 ply: " << it + 1 << " white_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 180 ply: " << it << " white_to_move White_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G4_0) {
 	chunk.result_q = black_to_move ? -0.00390625 : 0.00390625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 188 black_to_move White_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 190 ply: " << it + 1 << " white_to_move White_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 190 ply: " << it << " white_to_move White_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G4_5) {
 	chunk.result_q = black_to_move ? -0.001953125 : 0.001953125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
-	    std::cout << "Result: 198 ply: " << it + 1 << " black_to_move White_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 198 ply: " << it << " black_to_move White_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 200 ply: " << it + 1 << " white_to_move White_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 200 ply: " << it << " white_to_move White_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G5_0) {
 	chunk.result_q = black_to_move ? -0.0009765625 : 0.0009765625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G5_0 \n";
 	  } else {
-	    std::cout << "Result: 210 ply: " << it + 1 << " white_to_move White_won G5_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 210 ply: " << it << " white_to_move White_won G5_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G5_5) {
 	chunk.result_q = black_to_move ? -0.0004882812 : 0.0004882812;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G5_5 \n";
 	  } else {
-	    std::cout << "Result: 220 ply: " << it + 1 << " white_to_move White_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 220 ply: " << it << " white_to_move White_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G6_0) {
 	chunk.result_q = black_to_move ? -0.0002441406 : 0.0002441406;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G6_0 \n";
 	  } else {
-	    std::cout << "Result: 230 ply: " << it + 1 << " white_to_move White_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 230 ply: " << it << " white_to_move White_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G6_5) {
 	chunk.result_q = black_to_move ? -0.0001220703 : 0.0001220703;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G6_5 \n";
 	  } else {
-	    std::cout << "Result: 240 ply: " << it + 1 << " white_to_move White_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 240 ply: " << it << " white_to_move White_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G7_0) {
 	chunk.result_q = black_to_move ? -0.00006103516 : 0.00006103516;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G7_0 \n";
 	  } else {
-	    std::cout << "Result: 250 ply: " << it + 1 << " white_to_move White_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 250 ply: " << it << " white_to_move White_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G7_5) {
 	chunk.result_q = black_to_move ? -0.00003051758 : 0.00003051758;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G7_5 \n";
 	  } else {
-	    std::cout << "Result: 260 ply: " << it + 1 << " white_to_move White_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 260 ply: " << it << " white_to_move White_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G8_0) {
 	chunk.result_q = black_to_move ? -0.00001525879 : 0.00001525879;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G8_0 \n";
 	  } else {
-	    std::cout << "Result: 270 ply: " << it + 1 << " white_to_move White_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 270 ply: " << it << " white_to_move White_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G8_5) {
 	chunk.result_q = black_to_move ? -0.000007629395 : 0.000007629395;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G8_5 \n";
 	  } else {
-	    std::cout << "Result: 280 ply: " << it + 1 << " white_to_move White_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 280 ply: " << it << " white_to_move White_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G9_0) {
 	chunk.result_q = black_to_move ? -0.000003814697 : 0.000003814697;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G9_0 \n";
 	  } else {
-	    std::cout << "Result: 290 ply: " << it + 1 << " white_to_move White_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 290 ply: " << it << " white_to_move White_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::WHITE_G9_5) {
 	chunk.result_q = black_to_move ? -0.000001907349 : 0.000001907349;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: black_to_move White_won G9_5 \n";
 	  } else {
-	    std::cout << "Result: 300 ply: " << it + 1 << " white_to_move White_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 300 ply: " << it << " white_to_move White_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_WON) {
 	chunk.result_q = black_to_move ? 1 : -1;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: 308 white_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 310 ply: " << it + 1 << " black_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 310 ply: " << it << " black_to_move Black_won checkmate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_STALEMATE) {
 	chunk.result_q = black_to_move ? 0.5 : -0.5; // 0.75 * 2 - 1 = 0.5
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: 318 white_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 320 ply: " << it + 1 << " black_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 320 ply: " << it << " black_to_move Black_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G1_0) {
 	chunk.result_q = black_to_move ? 0.25 : -0.25;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: 328 white_to_move Black_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 330 ply: " << it + 1 << " black_to_move Black_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 330 ply: " << it << " black_to_move Black_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G1_5) {
 	chunk.result_q = black_to_move ? 0.125 : -0.125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: 338 white_to_move Black_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 340 ply: " << it + 1 << " black_to_move Black_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 340 ply: " << it << " black_to_move Black_won G1_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G2_0) {
 	chunk.result_q = black_to_move ? 0.0625 : -0.0625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G2_0 \n";
 	  } else {
-	    std::cout << "Result: 350 ply: " << it + 1 << " black_to_move Black_won G2_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 350 ply: " << it << " black_to_move Black_won G2_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G2_5) {
 	chunk.result_q = black_to_move ? 0.03125 : -0.03125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: 358 white_to_move Black_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 360 ply: " << it + 1 << " black_to_move Black_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 360 ply: " << it << " black_to_move Black_won G2_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G3_0) {
 	chunk.result_q = black_to_move ? 0.015625 : -0.015625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
-	    std::cout << "Result: 368 ply: " << it + 1 << " white_to_move Black_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 368 ply: " << it << " white_to_move Black_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 370 ply: " << it + 1 << " black_to_move Black_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 370 ply: " << it << " black_to_move Black_won G3_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G3_5) {
 	chunk.result_q = black_to_move ? 0.0078125 : -0.0078125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
-	    std::cout << "Result: 378 ply: " << it + 1 << " white_to_move Black_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 378 ply: " << it << " white_to_move Black_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  } else {
-	    std::cout << "Result: 380 ply: " << it + 1 << " black_to_move Black_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 380 ply: " << it << " black_to_move Black_won G3_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G4_0) {
 	chunk.result_q = black_to_move ? 0.00390625 : -0.00390625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G4_0 \n";
 	  } else {
-	    std::cout << "Result: 390 ply: " << it + 1 << " black_to_move Black_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 390 ply: " << it << " black_to_move Black_won G4_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G4_5) {
 	chunk.result_q = black_to_move ? 0.001953125 : -0.001953125;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G4_5 \n";
 	  } else {
-	    std::cout << "Result: 400 ply: " << it + 1 << " black_to_move Black_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 400 ply: " << it << " black_to_move Black_won G4_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G5_0) {
 	chunk.result_q = black_to_move ? 0.0009765625 : -0.0009765625;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G5_0 \n";
 	  } else {
-	    std::cout << "Result: 410 ply: " << it + 1 << " black_to_move Black_won G5_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 410 ply: " << it << " black_to_move Black_won G5_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G5_5) {
 	chunk.result_q = black_to_move ? 0.0004882812 : -0.0004882812;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G5_5 \n";
 	  } else {
-	    std::cout << "Result: 420 ply: " << it + 1 << " black_to_move Black_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 420 ply: " << it << " black_to_move Black_won G5_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G6_0) {
 	chunk.result_q = black_to_move ? 0.0002441406 : -0.0002441406;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G6_0 \n";
 	  } else {
-	    std::cout << "Result: 430 ply: " << it + 1 << " black_to_move Black_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 430 ply: " << it << " black_to_move Black_won G6_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G6_5) {
 	chunk.result_q = black_to_move ? 0.0001220703 : -0.0001220703;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G6_5 \n";
 	  } else {
-	    std::cout << "Result: 440 ply: " << it + 1 << " black_to_move Black_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 440 ply: " << it << " black_to_move Black_won G6_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G7_0) {
 	chunk.result_q = black_to_move ? 0.00006103516 : -0.00006103516;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G7_0 \n";
 	  } else {
-	    std::cout << "Result: 450 ply: " << it + 1 << " black_to_move Black_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 450 ply: " << it << " black_to_move Black_won G7_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G7_5) {
 	chunk.result_q = black_to_move ? 0.00003051758 : -0.00003051758;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G7_5 \n";
 	  } else {
-	    std::cout << "Result: 460 ply: " << it + 1 << " black_to_move Black_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 460 ply: " << it << " black_to_move Black_won G7_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G8_0) {
 	chunk.result_q = black_to_move ? 0.00001525879 : -0.00001525879;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G8_0 \n";
 	  } else {
-	    std::cout << "Result: 470 ply: " << it + 1 << " black_to_move Black_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 470 ply: " << it << " black_to_move Black_won G8_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G8_5) {
 	chunk.result_q = black_to_move ? 0.000007629395 : -0.000007629395;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G8_5 \n";
 	  } else {
-	    std::cout << "Result: 480 ply: " << it + 1 << " black_to_move Black_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 480 ply: " << it << " black_to_move Black_won G8_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G9_0) {
 	chunk.result_q = black_to_move ? 0.000003814697 : -0.000003814697;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G9_0 \n";
 	  } else {
-	    std::cout << "Result: 490 ply: " << it + 1 << " black_to_move Black_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 490 ply: " << it << " black_to_move Black_won G9_0. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else if (result == GameResult::BLACK_G9_5) {
 	chunk.result_q = black_to_move ? 0.000001907349 : -0.000001907349;
 	chunk.result_d = 0;
-	if(it == index_of_last_position_to_save - 1){
+	if(it == index_of_last_position_to_save){
 	  if(!black_to_move){
 	    std::cout << "Result: white_to_move Black_won G9_5 \n";
 	  } else {
-	    std::cout << "Result: 500 ply: " << it + 1 << " black_to_move Black_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
+	    std::cout << "Result: 500 ply: " << it << " black_to_move Black_won G9_5. q for the last chunk: " << chunk.result_q << "\n";
 	  }
 	}
       } else {
@@ -517,6 +526,7 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
       m_estimate -= 1.0f;
       writer->WriteChunk(chunk);
   }
+  std::cout << "In trainingdata.cc finished saving the game with " << index_of_last_position_to_save - index_of_first_position_to_save + 1 << " positions to save \n";
 }
 
 void V6TrainingDataArray::Add(const Node* node, const PositionHistory& history,

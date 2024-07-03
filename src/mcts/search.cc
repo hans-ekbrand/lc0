@@ -60,12 +60,12 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
   if (!searchmoves.empty()) return searchmoves;
   const auto& board = history.Last().GetBoard();
   MoveList root_moves;
-  LOGFILE << "MakeRootMoveFilter called number of pieces: " << (board.ours() | board.theirs()).count();
+  // LOGFILE << "MakeRootMoveFilter called number of pieces: " << (board.ours() | board.theirs()).count();
   if (!syzygy_tb || !board.castlings().no_legal_castle() ||
       (board.ours() | board.theirs()).count() > syzygy_tb->max_cardinality()) {
     return root_moves;
   }
-  LOGFILE << "MakeRootMoveFilter found the position to be covered by TB";
+  // LOGFILE << "MakeRootMoveFilter found the position to be covered by TB";
   if (syzygy_tb->root_probe(
           history.Last(), fast_play || history.DidRepeatSinceLastZeroingMove(),
           false, &root_moves)) {
@@ -710,7 +710,7 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
   const int k = 5;
   const auto& board = played_history_.Last().GetBoard();
   if ((board.ours() | board.theirs()).count() <= k) {
-    LOGFILE << "Setting temperature to zero since total piece count is less than: " << k << "\n";
+    // LOGFILE << "Setting temperature to zero since total piece count is less than: " << k << "\n";
     temperature = 0.0;
   }
 
@@ -912,11 +912,11 @@ void Search::StartThreads(size_t how_many) {
       worker.RunBlocking();
     });
   }
-  LOGFILE << "Search started. "
-          << std::chrono::duration_cast<std::chrono::milliseconds>(
-                 std::chrono::steady_clock::now() - start_time_)
-                 .count()
-          << "ms already passed.";
+  // LOGFILE << "Search started. "
+  //         << std::chrono::duration_cast<std::chrono::milliseconds>(
+  //                std::chrono::steady_clock::now() - start_time_)
+  //                .count()
+  //         << "ms already passed.";
 }
 
 void Search::RunBlocking(size_t threads) {
@@ -1008,7 +1008,7 @@ void Search::PopulateCommonIterationStats(IterationStats* stats) {
 }
 
 void Search::WatchdogThread() {
-  LOGFILE << "Start a watchdog thread.";
+  // LOGFILE << "Start a watchdog thread.";
   StoppersHints hints;
   IterationStats stats;
   while (true) {
@@ -1037,7 +1037,7 @@ void Search::WatchdogThread() {
         lock.get_raw(), std::chrono::milliseconds(remaining_time),
         [this]() { return stop_.load(std::memory_order_acquire); });
   }
-  LOGFILE << "End a watchdog thread.";
+  // LOGFILE << "End a watchdog thread.";
 }
 
 void Search::FireStopInternal() {
@@ -1059,7 +1059,7 @@ void Search::Abort() {
     bestmove_is_sent_ = true;
     FireStopInternal();
   }
-  LOGFILE << "Aborting search, if it is still active.";
+  // LOGFILE << "Aborting search, if it is still active.";
 }
 
 void Search::Wait() {
@@ -1088,7 +1088,7 @@ Search::~Search() {
     SharedMutex::Lock lock(nodes_mutex_);
     CancelSharedCollisions();
   }
-  LOGFILE << "Search destroyed.";
+  // LOGFILE << "Search destroyed.";
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -2008,7 +2008,7 @@ void SearchWorker::ExtendNode(Node* node, int depth,
         history->Last().GetRule50Ply() == 0 &&
         (board.ours() | board.theirs()).count() <=
             search_->syzygy_tb_->max_cardinality()) {
-      LOGFILE << "will search the TB \n";
+      // LOGFILE << "will search the TB \n";
       ProbeState state;
       const WDLScore wdl =
           search_->syzygy_tb_->probe_wdl(history->Last(), &state);
@@ -2042,7 +2042,7 @@ void SearchWorker::ExtendNode(Node* node, int depth,
 	// } else {
 	// Cursed wins and blessed losses count as draws.
 	// node->MakeTerminal(GameResult::DRAW, m, Node::Terminal::Tablebase);
-	LOGFILE << "Found a TB draw which I will ignore since TB does not now about r-mobility scores \n";
+	// LOGFILE << "Found a TB draw which I will ignore since TB does not now about r-mobility scores \n";
       }
     }
   }

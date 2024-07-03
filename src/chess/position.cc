@@ -92,9 +92,12 @@ GameResult operator-(const GameResult& res) {
 }
 
 GameResult PositionHistory::ComputeGameResultRmobility() const {
+  // Note that GetLength() includes the final position, ie the position *after* the winning move.
+  
   // traverse the game history until the last move that reset the 50 ply move rule (pawn move or capture)
   // find out which side first reached the highest goal that was reached, and what that goal was.
-  // move N leads to position N+1 since position 1 is not proceeded by any move.
+  // move N leads to position N+1 since position 1 is not proceeded by any move. On the other hand is training_data_ a zero based vector, and move N is included in traning_data_[N].
+  
   LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength();
   struct {
     long unsigned int number_of_legal_moves;
@@ -106,11 +109,17 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
   bool is_black_to_move = IsBlackToMove();
   GameResult result = GameResult::DRAW;
   uint8_t result_as_int;
-  for(int i = 1; i <= Last().GetRule50Ply(); i++){
-    // What is the motivation to start scoring at the position preceeding the position that triggered the 50 move rule?
+
+  // Should the r-mobility score of the last position be included?
+
+  // Not if we are here due to the 50-move rule, but yes if we are here due to a repetition.
+  // However, if we are here due to a repetition, then the repeated position will be found anyway, so we can just as well ignore it now.
+  
+  // What is the motivation to start scoring at the position preceeding the position that triggered the 50 move rule?
     // "Finally, if a game does end due to a 50-move rule, then the final position is ignored for the purposes of computing the best achieved G-score, unless it is stalemate, as explained above."
     // https://wiki.chessdom.org/R-Mobility#Point_scoring
     
+  for(int i = 1; i <= Last().GetRule50Ply(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
     if(i == Last().GetRule50Ply()){
@@ -272,6 +281,9 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
 }
 
 int PositionHistory::IndexOfFirstPositionWithKPieces(int k) const {
+  // If number of pieces was recuded to k with the move m,
+  // the first position to train on should be m.
+  // GetLength() = number of plies + 1.
   const auto& board = GetPositionAt(GetLength() - 1).GetBoard();
   int counter = 0;
   int number_of_pieces = (board.ours() | board.theirs()).count();
@@ -282,6 +294,7 @@ int PositionHistory::IndexOfFirstPositionWithKPieces(int k) const {
     number_of_pieces = (board.ours() | board.theirs()).count();
   }
   if(counter > 0){
+    // LOGFILE << "IndexOfFirstPositionWithKPieces has GetLength(): " << GetLength();
     return GetLength() - 1 - counter;
   } else {
     LOGFILE << "IndexOfFirstPositionWithKPieces() returning: " << GetLength() << " this should imply no training data being saved";
@@ -303,8 +316,9 @@ int PositionHistory::LocatePeakRmobilityScore() const {
   best_goal.is_in_check = false;
   bool is_black_to_move = IsBlackToMove();
   int index_of_peak_rmobility_score = 0;
+  int index_of_last_position_to_save = 0;
   uint8_t result_as_int;
-  for(int i = 0; i <= Last().GetRule50Ply(); i++){
+  for(int i = 1; i < Last().GetRule50Ply(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
     auto legal_moves = board.GenerateLegalMoves();
@@ -319,6 +333,7 @@ int PositionHistory::LocatePeakRmobilityScore() const {
       // to be awarded to the player who made the move that lead to
       // this position. If white is to move now, award black, if black
       // is to move now award white.
+      index_of_last_position_to_save = index_of_peak_rmobility_score - 1;
       
       // This fits the order defined in position.h line 97
       result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
@@ -326,8 +341,8 @@ int PositionHistory::LocatePeakRmobilityScore() const {
     // switch player for the next iteration
     is_black_to_move = !is_black_to_move;
   }
-  LOGFILE << "find peak r-mobility() found result_as_int = " << 0 + result_as_int << " and peak score at position: " << index_of_peak_rmobility_score;
-  return index_of_peak_rmobility_score;
+  LOGFILE << "find peak r-mobility() found result_as_int = " << 0 + result_as_int << " and peak score at position: " << index_of_peak_rmobility_score << " returning the value of index_of_last_position_to_save instead: " << index_of_last_position_to_save;
+  return index_of_last_position_to_save;
 }
 
 GameResult PositionHistory::ComputeGameResult() const {
@@ -344,16 +359,11 @@ GameResult PositionHistory::ComputeGameResult() const {
     return IsBlackToMove() ? GameResult::WHITE_STALEMATE : GameResult::BLACK_STALEMATE;
   }
 
-  // // if (!board.HasMatingMaterial()) return GameResult::DRAW;
-  // if (!board.HasMatingMaterial()) return ComputeGameResultRmobility();
-  
   if (Last().GetRule50Ply() >= 100) {
     return ComputeGameResultRmobility();
   }
-  // if (Last().GetRepetitions() >= 2) return GameResult::DRAW;
+
   if (Last().GetRepetitions() >= 2) {
-    // LOGFILE << "Result: draw by repetitions";
-    // return GameResult::DRAW;
     return ComputeGameResultRmobility();    
   }
 

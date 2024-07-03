@@ -63,8 +63,8 @@ bool VisitsStopper::ShouldStop(const IterationStats& stats,
   }
   auto my_limit = std::max(stats.desired_number_of_visits, nodes_limit_);
   if (stats.total_nodes >= my_limit) {
-    LOGFILE << "Stopped search: Reached visits limit: " << stats.total_nodes
-            << ">=" << my_limit;
+    // LOGFILE << "Stopped search: Reached visits limit: " << stats.total_nodes
+    //         << ">=" << my_limit;
     return true;
   }
   return false;
