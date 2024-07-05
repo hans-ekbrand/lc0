@@ -126,10 +126,10 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
   // Not if we are here due to the 50-move rule, but yes if we are here due to a repetition.
   // However, if we are here due to a repetition, then the repeated position will be found anyway, so we can just as well ignore it now.
   
-  // What is the motivation to start scoring at the position preceeding the position that triggered the 50 move rule?
+  // What is the motivation to start scoring at the position preceeding the position that triggered the 50 move rule? (having i start 1 below)
     // "Finally, if a game does end due to a 50-move rule, then the final position is ignored for the purposes of computing the best achieved G-score, unless it is stalemate, as explained above."
     // https://wiki.chessdom.org/R-Mobility#Point_scoring
-    
+
   for(int i = 1; i <= Last().GetRule50Ply(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
@@ -329,7 +329,7 @@ int PositionHistory::LocatePeakRmobilityScore() const {
   int index_of_peak_rmobility_score = 0;
   int index_of_last_position_to_save = 0;
   uint8_t result_as_int;
-  for(int i = 1; i < Last().GetRule50Ply(); i++){
+  for(int i = 1; i <= Last().GetRule50Ply(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
     auto legal_moves = board.GenerateLegalMoves();
