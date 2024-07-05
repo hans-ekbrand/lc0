@@ -124,7 +124,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
       } else if (result == GameResult::WHITE_STALEMATE) {
 	// for r-mobility the points in https://wiki.chessdom.org/R-Mobility#50-move_rule must be scaled to the range of q [-1, 1], which means multiply by 2, and then subtract 1
 	chunk.result_q = black_to_move ? -0.5 : 0.5; // 0.75 * 2 - 1 = 0.5
-	chunk.result_d = 0;
+	// chunk.result_d = 0.5; // Not sure what to put here. WDL might break if d is 0 and q is less than 1.
+	chunk.result_d = 0.0;	
 	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 118 black_to_move White_won stalemate. q for the last chunk: " << chunk.result_q << "\n";
@@ -134,7 +135,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	}
       } else if (result == GameResult::WHITE_G1_0) {
 	chunk.result_q = black_to_move ? -0.25 : 0.25;
-	chunk.result_d = 0;
+	// chunk.result_d = 0.75;
+	chunk.result_d = 0.0;		
 	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 128 ply: " << it << " black_to_move White_won G1_0. q for the last chunk: " << chunk.result_q << "\n";
@@ -144,7 +146,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	}
       } else if (result == GameResult::WHITE_G1_5) {
 	chunk.result_q = black_to_move ? -0.125 : 0.125;
-	chunk.result_d = 0;
+	// chunk.result_d = 0.875;
+	chunk.result_d = 0.0;		
 	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 138 black_to_move White_won G1_5 \n";
@@ -154,7 +157,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	}
       } else if (result == GameResult::WHITE_G2_0) {
 	chunk.result_q = black_to_move ? -0.0625 : 0.0625;
-	chunk.result_d = 0;
+	// chunk.result_d = 0.9375;
+	chunk.result_d = 0.0;
 	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 148 black_to_move White_won G2_0 \n";
@@ -164,7 +168,8 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
 	}
       } else if (result == GameResult::WHITE_G2_5) {
 	chunk.result_q = black_to_move ? -0.03125 : 0.03125;
-	chunk.result_d = 0;
+	// chunk.result_d = 0.96875;
+	chunk.result_d = 0.0;
 	if(it == index_of_last_position_to_save){
 	  if(black_to_move){
 	    std::cout << "Result: 158 ply: " << it << " black_to_move White_won G2_5. q for the last chunk: " << chunk.result_q << "\n";

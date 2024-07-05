@@ -86,9 +86,20 @@ uint64_t Position::Hash() const {
 std::string Position::DebugString() const { return us_board_.DebugString(); }
 
 GameResult operator-(const GameResult& res) {
-  return res == GameResult::BLACK_WON   ? GameResult::WHITE_WON
-         : res == GameResult::WHITE_WON ? GameResult::BLACK_WON
-                                        : res;
+  // R-mobility support
+  // To "invert" a r-mobilty score result, convert to integer add 20 if 1 < res < 20, subtract 20 if 20 < res and convert back from integer again.
+  uint8_t result = static_cast<uint8_t>(res);
+  if(result > 1 && result < 21){
+    result = result + 21;
+  }
+  if(result > 21){
+    result = result - 21;
+  }
+  return(static_cast<GameResult>(result));
+  
+  // return res == GameResult::BLACK_WON   ? GameResult::WHITE_WON
+  //        : res == GameResult::WHITE_WON ? GameResult::BLACK_WON
+  //                                       : res;
 }
 
 GameResult PositionHistory::ComputeGameResultRmobility() const {
