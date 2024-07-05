@@ -452,14 +452,18 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 	// The game ended at the peak, positions are 0 based so in a one ply game, there is only one position, position[0], this is the reason for -1.
 	index_of_last_position_to_train_on = game_info.moves.size() - game_info.play_start_ply - 1;
 	LOGFILE << "in PlayOneGame(), last position to train on is (zero based) the position before the last move in the game - start ply: " << index_of_last_position_to_train_on;
+
+	// This seems to trigger a too agressive policy hunting down the enemy queen without any fear of losing material.
+	
 	// If the game ended in a mate, and the game never reached a position with only k pieces on the board, adjust the index_of_first_position_to_train_on so that the position before
 	// mating move is saved.
-	if(((game_info.game_result == GameResult::WHITE_WON || game_info.game_result == GameResult::BLACK_WON)) && index_of_first_position_with_k_pieces > game.GetGameTree()->GetPositionHistory().Last().GetGamePly()){
-	  // LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
-	  // index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
-	  LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << index_of_last_position_to_train_on << " you might also be interested to know that game.GetGameTree()->GetPositionHistory().Last().GetGamePly() has the value: " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
-	  index_of_first_position_to_train_on = index_of_last_position_to_train_on;
-	}
+	// if(((game_info.game_result == GameResult::WHITE_WON || game_info.game_result == GameResult::BLACK_WON)) && index_of_first_position_with_k_pieces > game.GetGameTree()->GetPositionHistory().Last().GetGamePly()){
+	//   LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	//   index_of_first_position_to_train_on = game.GetGameTree()->GetPositionHistory().Last().GetGamePly() - 1;
+	//   LOGFILE << "Game ended in mate before reaching interesting part, save only last chunk to train on. decrease index_of_first_position_to_train_on from " << index_of_first_position_to_train_on << " to " << index_of_last_position_to_train_on << " you might also be interested to know that game.GetGameTree()->GetPositionHistory().Last().GetGamePly() has the value: " << game.GetGameTree()->GetPositionHistory().Last().GetGamePly();
+	//   index_of_first_position_to_train_on = index_of_last_position_to_train_on;
+	// }
+	
       }
 
       if (!enable_resign) {
