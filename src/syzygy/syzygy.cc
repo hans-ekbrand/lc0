@@ -1671,10 +1671,18 @@ bool SyzygyTablebase::root_probe(const Position& pos, bool has_repeated,
                 : dtz < 0 ? -1000 + (-dtz + cnt50)
                           : 0;
 
-    // prefer mate over dtz
-    if (next_pos.GetBoard().IsUnderCheck() && dtz == 2 &&
+    // prefer mate over dtz, when winning
+    if (dtz > 0 && next_pos.GetBoard().IsUnderCheck() && dtz == 2 &&
         next_pos.GetBoard().GenerateLegalMoves().size() == 0) {
       r = 1001;
+    }
+
+    // if this move entails capturing the opponents pieces, and you are losing, then accept the offered piece
+    if(dtz < 0){
+      if(pos.GetBoard().theirs().count() > next_pos.GetBoard().ours().count()){
+	LOGFILE << "Losing side takes the offered piece";
+	r = -800;
+      }
     }
 
     if (r > best_rank) best_rank = r;
