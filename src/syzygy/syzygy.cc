@@ -1658,11 +1658,25 @@ bool SyzygyTablebase::root_probe(const Position& pos, bool has_repeated,
     if (result == FAIL) return false;
     // Better moves are ranked higher. Certain wins are ranked equally.
     // Losing moves are ranked equally unless a 50-move draw is in sight.
+    // int r = dtz > 0
+    //             ? (dtz + cnt50 <= 99 && !rep ? 1000 : 1000 - (dtz + cnt50))
+    //             : dtz < 0 ? (-dtz * 2 + cnt50 < 100 ? -1000
+    //                                                 : -1000 + (-dtz + cnt50))
+    //                       : 0;
+
+    // When losing, prefer longer losses.
+    
     int r = dtz > 0
                 ? (dtz + cnt50 <= 99 && !rep ? 1000 : 1000 - (dtz + cnt50))
-                : dtz < 0 ? (-dtz * 2 + cnt50 < 100 ? -1000
-                                                    : -1000 + (-dtz + cnt50))
+                : dtz < 0 ? -1000 + (-dtz + cnt50)
                           : 0;
+
+    // prefer mate over dtz
+    if (next_pos.GetBoard().IsUnderCheck() && dtz == 2 &&
+        next_pos.GetBoard().GenerateLegalMoves().size() == 0) {
+      r = 1001;
+    }
+
     if (r > best_rank) best_rank = r;
     ranks.push_back(r);
   }

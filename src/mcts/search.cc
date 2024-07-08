@@ -53,7 +53,8 @@ const int kUciInfoMinimumFrequencyMs = 5000;
 MoveList MakeRootMoveFilter(const MoveList& searchmoves,
                             SyzygyTablebase* syzygy_tb,
                             const PositionHistory& history, bool fast_play,
-                            std::atomic<int>* tb_hits, bool* dtz_success) {
+                            std::atomic<int>* tb_hits, bool* dtz_success)
+			    {
   assert(tb_hits);
   assert(dtz_success);
   // Search moves overrides tablebase.
@@ -65,7 +66,7 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
       (board.ours() | board.theirs()).count() > syzygy_tb->max_cardinality()) {
     return root_moves;
   }
-  // LOGFILE << "MakeRootMoveFilter found the position to be covered by TB";
+
   if (syzygy_tb->root_probe(
           history.Last(), fast_play || history.DidRepeatSinceLastZeroingMove(),
           false, &root_moves)) {
@@ -74,7 +75,8 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
   } else if (syzygy_tb->root_probe_wdl(history.Last(), &root_moves)) {
     tb_hits->fetch_add(1, std::memory_order_acq_rel);
   }
-  // LOGFILE << "MakeRootMoveFilter about to return a list of moves that must not be played, this length of this list is: " << root_moves.size();
+  LOGFILE << "MakeRootMoveFilter about to return a list of moves that must be played, this length of this list is: " << root_moves.size();
+  
   return root_moves;
 }
 
