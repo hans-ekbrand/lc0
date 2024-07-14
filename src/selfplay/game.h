@@ -132,6 +132,8 @@ class SelfPlayGame {
   V6TrainingDataArray training_data_;
 
   std::unique_ptr<SyzygyTablebase> syzygy_tb_;
+  std::unique_ptr<bool> gaviotaEnabled_ = nullptr;
+  
 };
 
 }  // namespace lczero

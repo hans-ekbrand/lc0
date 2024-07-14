@@ -61,11 +61,24 @@ const OptionId kSyzygyTablebaseId{
     "List of Syzygy tablebase directories, list entries separated by system "
     "separator (\";\" for Windows, \":\" for Linux).",
     's'};
+const OptionId kGaviotaTablebaseId{"gaviotatb-paths", "GaviotaPath",
+     "List of Gaviota tablebase directories. If both Syzygy and Gaviota are "
+     "provided, Gaviota will take precedence when only 5 pieces remain. "
+     "Note that if this parameter is set it is assumed that all Gaviota "
+     "tables (3, 4 and 5-men) are available, but this is not checked, "
+     "so using this parameter without all of these is not supported."};
 const OptionId kOpeningStopProbId{
     "opening-stop-prob", "OpeningStopProb",
     "From each opening move, start a self-play game with probability max(p, "
     "1/n), where p is the value given and n the opening moves remaining."};
 }  // namespace
+
+// Needed for Gaviota
+#ifdef _WIN32
+#define SEP_CHAR ';'
+#else
+#define SEP_CHAR ':'
+#endif
 
 void SelfPlayGame::PopulateUciParams(OptionsParser* options) {
   options->Add<BoolOption>(kReuseTreeId) = false;
@@ -76,6 +89,7 @@ void SelfPlayGame::PopulateUciParams(OptionsParser* options) {
   options->Add<BoolOption>(kUciChess960) = false;
   PopulateTimeManagementOptions(RunType::kSelfplay, options);
   options->Add<StringOption>(kSyzygyTablebaseId);
+  options->Add<StringOption>(kGaviotaTablebaseId);  
   options->Add<FloatOption>(kOpeningStopProbId, 0.0f, 1.0f) = 0.0f;
 }
 
@@ -147,6 +161,30 @@ void SelfPlayGame::Play(int white_threads, int black_threads, bool training,
       syzygy_tb_ = nullptr;
     }
   }
+
+    // Init Gaviota, if a path is given as player1 options
+  auto dtmPaths = options_[0].uci_options->Get<std::string>(kGaviotaTablebaseId);
+  if (dtmPaths.size() != 0) {
+    std::stringstream path_string_stream(dtmPaths);
+    std::string path;
+    auto paths = tbpaths_init();
+    while (std::getline(path_string_stream, path, SEP_CHAR)) {
+      paths = tbpaths_add(paths, path.c_str());
+    }
+    tb_init(0, tb_CP4, paths);
+    tbcache_init(64 * 1024 * 1024, 64);
+    if (tb_availability() != 63) {
+      std::cerr << "UNEXPECTED gaviota availability" << std::endl;
+      gaviotaEnabled_ = std::make_unique<bool>(false);
+      return;
+    } else {
+      gaviotaEnabled_ = std::make_unique<bool>(true);      
+      std::cerr << "Found Gaviota TBs" << std::endl;
+    }
+  } else {
+    gaviotaEnabled_ = std::make_unique<bool>(false);
+  }
+
   // Do moves while not end of the game. (And while not abort_)
   while (!abort_) {
     game_result_ = tree_[0]->GetPositionHistory().ComputeGameResult();
@@ -184,7 +222,7 @@ void SelfPlayGame::Play(int white_threads, int black_threads, bool training,
           *tree_[idx], options_[idx].network, std::move(responder),
           /* searchmoves */ MoveList(), std::chrono::steady_clock::now(),
           std::move(stoppers), /* infinite */ false, /* ponder */ false,
-          *options_[idx].uci_options, options_[idx].cache, syzygy_tb);
+          *options_[idx].uci_options, options_[idx].cache, syzygy_tb, false);
     }
 
     // Do search.

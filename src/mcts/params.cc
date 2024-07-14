@@ -633,6 +633,7 @@ SearchParams::SearchParams(const OptionsDict& options)
       kOutOfOrderEval(options.Get<bool>(kOutOfOrderEvalId)),
       kStickyEndgames(options.Get<bool>(kStickyEndgamesId)),
       kSyzygyFastPlay(options.Get<bool>(kSyzygyFastPlayId)),
+      
       kHistoryFill(EncodeHistoryFill(options.Get<std::string>(kHistoryFillId))),
       kMiniBatchSize(options.Get<int>(kMiniBatchSizeId)),
       kMovesLeftMaxEffect(options.Get<float>(kMovesLeftMaxEffectId)),
