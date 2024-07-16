@@ -164,7 +164,7 @@ bool root_probe_gaviota(const Position& pos, std::vector<Move>* safe_moves) {
     unsigned int info;
     unsigned int dtm;
     gaviota_tb_probe_hard(next_pos, info, dtm);
-    // LOGFILE << "DTM for move: " << move.as_string() << " is " << dtm << " and info is " << info << "\n";
+    LOGFILE << "DTM for move: " << move.as_string() << " is " << dtm << " and info is " << info << "\n";
     if (! winning && info == 2) winning = true; // set winning if it is not already set
     if (! drawing && info == 0) drawing = true; // set drawing if it is not already set    
     dtms[dtm_idx] = dtm;

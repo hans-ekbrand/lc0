@@ -371,10 +371,12 @@ GameResult PositionHistory::ComputeGameResult() const {
   }
 
   if (Last().GetRule50Ply() >= 100) {
+    LOGFILE << "50 move rule reached, compute R-mobility for this node";
     return ComputeGameResultRmobility();
   }
 
   if (Last().GetRepetitions() >= 2) {
+    LOGFILE << "Repetitions reached, compute R-mobility for this node";    
     return ComputeGameResultRmobility();    
   }
 
