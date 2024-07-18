@@ -953,6 +953,11 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
         };
 
         auto GetEdgeRank = [](const EdgeAndNode& edge) {
+
+	  // R-mobility support: do not prefer terminal stalemate!
+	  // Just prefer better wdl at all times.
+	  return kNonTerminal;
+	  
           // This default isn't used as wl only checked for case edge is
           // terminal.
           const auto wl = edge.GetWL(0.0f);
