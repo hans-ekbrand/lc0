@@ -87,15 +87,106 @@ std::string Position::DebugString() const { return us_board_.DebugString(); }
 
 GameResult operator-(const GameResult& res) {
   // R-mobility support
-  // To "invert" a r-mobilty score result, convert to integer add 20 if 1 < res < 20, subtract 20 if 20 < res and convert back from integer again.
-  uint8_t result = static_cast<uint8_t>(res);
-  if(result > 1 && result < 21){
-    result = result + 21;
-  }
-  if(result > 21){
-    result = result - 21;
-  }
-  return(static_cast<GameResult>(result));
+
+switch (res) {
+ case GameResult::BLACK_WON:
+   return(GameResult::WHITE_WON);
+ case GameResult::WHITE_WON:
+   return(GameResult::BLACK_WON);
+  case GameResult::BLACK_STALEMATE:
+   return(GameResult::WHITE_STALEMATE);
+  case GameResult::BLACK_G1_0:
+   return(GameResult::WHITE_G1_0);
+  case GameResult::WHITE_G1_0:
+   return(GameResult::BLACK_G1_0);
+  case GameResult::BLACK_G1_5:
+   return(GameResult::WHITE_G1_5);
+  case GameResult::WHITE_G1_5:
+   return(GameResult::BLACK_G1_5);
+  case GameResult::BLACK_G2_0:
+   return(GameResult::WHITE_G2_0);
+  case GameResult::WHITE_G2_0:
+   return(GameResult::BLACK_G2_0);
+  case GameResult::BLACK_G2_5:
+   return(GameResult::WHITE_G2_5);
+  case GameResult::WHITE_G2_5:
+   return(GameResult::BLACK_G2_5);
+  case GameResult::BLACK_G3_0:
+   return(GameResult::WHITE_G3_0);
+  case GameResult::WHITE_G3_0:
+   return(GameResult::BLACK_G3_0);
+  case GameResult::BLACK_G3_5:
+   return(GameResult::WHITE_G3_5);
+  case GameResult::WHITE_G3_5:
+   return(GameResult::BLACK_G3_5);
+  case GameResult::BLACK_G4_0:
+   return(GameResult::WHITE_G4_0);
+  case GameResult::WHITE_G4_0:
+   return(GameResult::BLACK_G4_0);
+  case GameResult::BLACK_G4_5:
+   return(GameResult::WHITE_G4_5);
+  case GameResult::WHITE_G4_5:
+   return(GameResult::BLACK_G4_5);
+  case GameResult::BLACK_G5_0:
+   return(GameResult::WHITE_G5_0);
+  case GameResult::WHITE_G5_0:
+   return(GameResult::BLACK_G5_0);
+  case GameResult::BLACK_G5_5:
+   return(GameResult::WHITE_G5_5);
+  case GameResult::WHITE_G5_5:
+   return(GameResult::BLACK_G5_5);
+  case GameResult::BLACK_G6_0:
+   return(GameResult::WHITE_G6_0);
+  case GameResult::WHITE_G6_0:
+   return(GameResult::BLACK_G6_0);
+  case GameResult::BLACK_G6_5:
+   return(GameResult::WHITE_G6_5);
+  case GameResult::WHITE_G6_5:
+   return(GameResult::BLACK_G6_5);
+  case GameResult::BLACK_G7_0:
+   return(GameResult::WHITE_G7_0);
+  case GameResult::WHITE_G7_0:
+   return(GameResult::BLACK_G7_0);
+  case GameResult::BLACK_G7_5:
+   return(GameResult::WHITE_G7_5);
+  case GameResult::WHITE_G7_5:
+   return(GameResult::BLACK_G7_5);
+  case GameResult::BLACK_G8_0:   
+   return(GameResult::WHITE_G8_0);
+  case GameResult::WHITE_G8_0:
+   return(GameResult::BLACK_G8_0);
+  case GameResult::BLACK_G8_5:
+   return(GameResult::WHITE_G8_5);
+  case GameResult::WHITE_G8_5:
+   return(GameResult::BLACK_G8_5);
+  case GameResult::BLACK_G9_0:   
+   return(GameResult::WHITE_G9_0);
+  case GameResult::WHITE_G9_0:
+   return(GameResult::BLACK_G9_0);
+  case GameResult::BLACK_G9_5:
+   return(GameResult::WHITE_G9_5);
+  case GameResult::WHITE_G9_5:
+   return(GameResult::BLACK_G9_5);
+ default:
+   return(GameResult::DRAW);
+}
+  
+  // // To "invert" a r-mobility score result, convert to integer add 20 if 1 < res < 20, subtract 20 if 20 < res and convert back from integer again.
+  // // int result = static_cast<int>(res);
+  // uint8_t result = static_cast<uint8_t>(res);
+  // if(result > 1 && result < 21){
+  //   LOGFILE << "result implies black win, adding 21 to " << static_cast<int>(result);
+  //   result = result + 21;
+  // } else {
+  //   if(result > 21){
+  //     LOGFILE << "result implies white win, subtracting 21 from " << result;    
+  //     result = result - 21;
+  //   }
+  // }
+
+  // LOGFILE << "In the minus operator, with input " << static_cast<int>(result) << " about to return " << result << " made into a GameResult";
+  
+  // return(static_cast<GameResult>(result));
   
   // return res == GameResult::BLACK_WON   ? GameResult::WHITE_WON
   //        : res == GameResult::WHITE_WON ? GameResult::BLACK_WON
