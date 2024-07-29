@@ -1143,8 +1143,8 @@ void Search::PopulateCommonIterationStats(IterationStats* stats) {
 
   // Set desired number of visits (for selfplay) based on number of pieces left
   const auto& board = played_history_.Last().GetBoard();
-  if ((board.ours() | board.theirs()).count() <= 5){
-    stats->desired_number_of_visits = 32;
+  if ((board.ours() | board.theirs()).count() <= params_.GetMaxNumberOfPieces()){
+    stats->desired_number_of_visits = 800;
   }
 
   // If root node hasn't finished first visit, none of this code is safe.

@@ -100,6 +100,7 @@ class SearchParams {
   bool GetOutOfOrderEval() const { return kOutOfOrderEval; }
   bool GetStickyEndgames() const { return kStickyEndgames; }
   bool GetSyzygyFastPlay() const { return kSyzygyFastPlay; }
+  int GetMaxNumberOfPieces() const { return kMaxNumberOfPieces; }  
   int GetMultiPv() const { return options_.Get<int>(kMultiPvId); }
   bool GetPerPvCounters() const { return options_.Get<bool>(kPerPvCountersId); }
   std::string GetScoreType() const {
@@ -196,6 +197,7 @@ class SearchParams {
   static const OptionId kOutOfOrderEvalId;
   static const OptionId kStickyEndgamesId;
   static const OptionId kSyzygyFastPlayId;
+  static const OptionId kMaxNumberOfPiecesId;  
   static const OptionId kMultiPvId;
   static const OptionId kPerPvCountersId;
   static const OptionId kScoreTypeId;
@@ -264,6 +266,7 @@ class SearchParams {
   const bool kOutOfOrderEval;
   const bool kStickyEndgames;
   const bool kSyzygyFastPlay;
+  const int kMaxNumberOfPieces;
   const FillEmptyHistory kHistoryFill;
   const int kMiniBatchSize;
   const float kMovesLeftMaxEffect;

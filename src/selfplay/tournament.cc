@@ -56,6 +56,10 @@ const OptionId kPlayoutsId{"playouts", "Playouts",
                            "Number of playouts per move to search."};
 const OptionId kVisitsId{"visits", "Visits",
                          "Number of visits per move to search."};
+const OptionId kMaxNumberOfPiecesId{
+    "max-number-of-pieces", "MaxNumberOfPieces",
+    "When only this number of pieces remain on the board, ignore the visits "
+    "parameter and use more visits."};
 const OptionId kTimeMsId{"movetime", "MoveTime",
                          "Time per move, in milliseconds."};
 const OptionId kTrainingId{
@@ -126,6 +130,7 @@ void SelfPlayTournament::PopulateOptions(OptionsParser* options) {
   options->Add<IntOption>(kParallelGamesId, 1, 256) = 8;
   options->Add<IntOption>(kPlayoutsId, -1, 999999999) = -1;
   options->Add<IntOption>(kVisitsId, -1, 999999999) = -1;
+  options->Add<IntOption>(kMaxNumberOfPiecesId, 2, 32) = 2;
   options->Add<IntOption>(kTimeMsId, -1, 999999999) = -1;
   options->Add<BoolOption>(kTrainingId) = false;
   options->Add<BoolOption>(kVerboseThinkingId) = false;
@@ -147,6 +152,7 @@ void SelfPlayTournament::PopulateOptions(OptionsParser* options) {
 
   auto defaults = options->GetMutableDefaultsOptions();
   defaults->Set<int>(SearchParams::kMiniBatchSizeId, 32);
+  defaults->Set<int>(SearchParams::kMaxNumberOfPiecesId, 32);
   defaults->Set<float>(SearchParams::kCpuctId, 1.2f);
   defaults->Set<float>(SearchParams::kCpuctFactorId, 0.0f);
   defaults->Set<float>(SearchParams::kPolicySoftmaxTempId, 1.0f);
@@ -450,7 +456,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
         game_info.play_start_ply < static_cast<int>(game_info.moves.size())) {
 
       // Determine the number of moves played with at most k pieces on the board.
-      int k = 5;
+      int k = player_options_[0][color_idx[0]].Get<int>(kMaxNumberOfPiecesId);
       int index_of_first_position_with_k_pieces = game.GetGameTree()->GetPositionHistory().IndexOfFirstPositionWithKPieces(k);
       LOGFILE << "game_info.moves.size() is: " << game_info.moves.size();
       // includes the moves in the opening book. (start_ply)
@@ -480,6 +486,7 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
 
 	index_of_last_position_to_train_on = game.GetGameTree()->GetPositionHistory().LocatePeakRmobilityScore();
 
+	// might this lead to negative moves left later on?
 	game_info.last_ply = index_of_last_position_to_train_on + 1; // Include the winning move. position is zero based, so if the winning move is ply k, then the last position is k-1, and to counter this, add one here.
 
 	index_of_last_position_to_train_on = std::max(0, index_of_last_position_to_train_on - game_info.play_start_ply); // If r-mobility peak was reached before play_start_ply, then don't save any training data, since the game outcome is not necessarily valid for those positions.

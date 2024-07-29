@@ -92,7 +92,11 @@ void V6TrainingDataArray::Write(TrainingDataWriter* writer, GameResult result,
     " last position to save at: " << index_of_last_position_to_save << "\n";
 
   // float m_estimate = training_data_.back().best_m + index_of_last_position_to_save;
-  float m_estimate = index_of_last_position_to_save - 1;
+
+  // This appears to generate negative values, which is not intended.
+  // float m_estimate = index_of_last_position_to_save - 1;
+
+  float m_estimate = index_of_last_position_to_save - index_of_first_position_to_save;
 
   for (int it = index_of_first_position_to_save; it <= index_of_last_position_to_save; it++) {
     if(index_of_last_position_to_save - index_of_first_position_to_save == 0){

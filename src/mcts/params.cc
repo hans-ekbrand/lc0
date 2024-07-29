@@ -319,6 +319,10 @@ const OptionId SearchParams::kSyzygyFastPlayId{
     "syzygy-fast-play", "SyzygyFastPlay",
     "With DTZ tablebase files, only allow the network pick from winning moves "
     "that have shortest DTZ to play faster (but not necessarily optimally)."};
+const OptionId SearchParams::kMaxNumberOfPiecesId{
+    "max-number-of-pieces", "MaxNumberOfPieces",
+    "When only this number of pieces remain on the board, ignore the visits "
+    "parameter and use more visits."};
 const OptionId SearchParams::kMultiPvId{
     "multipv", "MultiPV",
     "Number of game play lines (principal variations) to show in UCI info "
@@ -524,6 +528,7 @@ void SearchParams::Populate(OptionsParser* options) {
   options->Add<FloatOption>(kMaxOutOfOrderEvalsFactorId, 0.0f, 100.0f) = 2.4f;
   options->Add<BoolOption>(kStickyEndgamesId) = true;
   options->Add<BoolOption>(kSyzygyFastPlayId) = false;
+  options->Add<IntOption>(kMaxNumberOfPiecesId, 2, 32) = 5;
   options->Add<IntOption>(kMultiPvId, 1, 500) = 1;
   options->Add<BoolOption>(kPerPvCountersId) = false;
   std::vector<std::string> score_type = {"centipawn",
@@ -633,7 +638,7 @@ SearchParams::SearchParams(const OptionsDict& options)
       kOutOfOrderEval(options.Get<bool>(kOutOfOrderEvalId)),
       kStickyEndgames(options.Get<bool>(kStickyEndgamesId)),
       kSyzygyFastPlay(options.Get<bool>(kSyzygyFastPlayId)),
-      
+      kMaxNumberOfPieces(options.Get<int>(kMaxNumberOfPiecesId)),
       kHistoryFill(EncodeHistoryFill(options.Get<std::string>(kHistoryFillId))),
       kMiniBatchSize(options.Get<int>(kMiniBatchSizeId)),
       kMovesLeftMaxEffect(options.Get<float>(kMovesLeftMaxEffectId)),
