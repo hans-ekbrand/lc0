@@ -38,6 +38,7 @@
 #include "utils/filesystem.h"
 #include "utils/optionsparser.h"
 #include "utils/random.h"
+#include "chess/board.h"
 
 namespace lczero {
 
@@ -477,6 +478,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
   // Scope to ensure reader and writer are closed before deleting source file.
   {
     try {
+      // std::cout << "trying to read: " << file << "\n";      
       TrainingDataReader reader(file);
       std::vector<V7TrainingData> fileContents;
       V7TrainingData data;
@@ -488,6 +490,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       // std::cout << "First check passed \n";      
       MoveList moves;
       for (long unsigned int i = 1; i < fileContents.size(); i++) {
+	// std::cout << "Trying to Decode Move From Input, i=" << i << "\n";
         moves.push_back(
             DecodeMoveFromInput(PlanesFromTrainingData(fileContents[i]),
                                 PlanesFromTrainingData(fileContents[i - 1])));
@@ -498,7 +501,9 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 	// std::cout << "Stored the move played in position " << i - 1 << ", which is the difference between position " << i - 1 << " and position " << i << " and the move was: " << moves.back().as_string() << ".\n";
 	// The last move can not be checked this way since it has no position after it, since the final position can not be trained on.
       }
+      // std::cout << "Trying Validate fileContents and moves. \n";
       Validate(fileContents, moves);
+      // std::cout << "Validation successful. \n";
       games += 1;
       positions += fileContents.size();
       PositionHistory history;
@@ -569,6 +574,8 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         }
       }
 
+      // std::cout << "Policy softmax finished. \n";      
+
       PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                     &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
@@ -583,7 +590,10 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
             (board.ours() | board.theirs()).count() <=
                 tablebase->max_cardinality()) {
           ProbeState state;
+	  // std::cout << "created a board with " << (board.ours() | board.theirs()).count() << " number of pieces on it, will now probe TB for it. " << i << " position: " << board.DebugString() << " position as fen: " <<
+	  //   GetFen(history.Last()) << std::endl;	  
           WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
+	  // std::cout << "Probing finished.. " << i << std::endl;	  	  
           // Only fail state means the WDL is wrong, probe_wdl may produce
           // correct result with a stat other than OK.
           if (state != FAIL) {
@@ -630,6 +640,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 	  }
         }
       }
+      // std::cout << "First PopulateBoard() finished. \n";
       PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
                     &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
@@ -739,6 +750,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
           }
         }
       }
+      // std::cout << "Second PopulateBoard() finished. \n";      
 
       if (distTemp != 1.0f || distOffset != 0.0f || dtzBoost != 0.0f) {
         PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
@@ -832,6 +844,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         }
       }
 
+      // std::cout << "Third PopulateBoard() finished. \n";      
       // Make move_count field plies_left for moves left head.
       int offset = 0;
       bool all_draws = true;
@@ -845,6 +858,7 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
         offset++;
         all_draws = all_draws && (ResultForData(chunk) == 0);
       }
+      // std::cout << "Modifying plies left finished. \n";            
 
       // Correct plies_left using Gaviota TBs for 5 piece and less positions.
       if (gaviotaEnabled && !all_draws) {
