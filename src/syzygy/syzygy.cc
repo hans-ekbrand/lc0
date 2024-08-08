@@ -989,8 +989,8 @@ class SyzygyTablebaseImpl {
     }
 
   finished:
-    CERR << "Found " << num_wdl_ << " WDL, " << num_dtm_ << " DTM and "
-         << num_dtz_ << " DTZ tablebase files.";
+    // CERR << "Found " << num_wdl_ << " WDL, " << num_dtm_ << " DTM and "
+    //      << num_dtz_ << " DTZ tablebase files.";
   }
 
   ~SyzygyTablebaseImpl() {

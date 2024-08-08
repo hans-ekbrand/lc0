@@ -89,9 +89,14 @@ const OptionId kNnueBestMoveId{
     "nnue-best-move", "",
     "For the SF training data record the best move instead of the played one. "
     "If set to true the generated files do not compress well."};
+const OptionId kNumberOfPiecesId{"number-of-pieces", "",
+    "Extract one position per game with this many pieces, it the game reached "
+    "that state. See also delta-q."};
+const OptionId kDeltaQId{"delta-q", "",
+    "Only extract a position from the game if a position also satisfied the "
+    "requirement that abs(root_q) is less than delta-q away from 0.5."};
 const OptionId kDeleteFilesId{"delete-files", "",
                               "Delete the input files after processing."};
-
 const OptionId kLogFileId{"logfile", "LogFile",
                           "Write log to that file. Special value <stderr> to "
                           "output the log to the console."};
@@ -471,7 +476,7 @@ struct ProcessFileFlags {
 };
 
 void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
-                 std::string outputDir, float distTemp, float distOffset,
+                 std::string outputDir, float delta_q, int number_of_pieces,
                  float dtzBoost, int newInputFormat,
                  std::string nnue_plain_file, ProcessFileFlags flags) {
   // Scope to ensure reader and writer are closed before deleting source file.
@@ -511,681 +516,28 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
                     &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
       uint64_t rootHash = HashCat(board.Hash(), rule50ply);
-      if (policy_subs.find(rootHash) != policy_subs.end()) {
-        PolicySubNode* rootNode = &policy_subs[rootHash];
-        for (long unsigned int i = 0; i < fileContents.size(); i++) {
-          if (rootNode->active) {
-            /* Some logic for choosing a softmax to apply to better align the
-            new policy with the old policy...
-            double bestkld =
-              std::numeric_limits<double>::max(); float besttemp = 1.0f;
-            // Minima is usually in this range for 'better' data.
-            for (float temp = 1.0f; temp < 3.0f; temp += 0.1f) {
-              float soft[1858];
-              float sum = 0.0f;
-              for (int j = 0; j < 1858; j++) {
-                if (rootNode->policy[j] >= 0.0) {
-                  soft[j] = std::pow(rootNode->policy[j], 1.0f / temp);
-                  sum += soft[j];
-                } else {
-                  soft[j] = -1.0f;
-                }
-              }
-              double kld = 0.0;
-              for (int j = 0; j < 1858; j++) {
-                if (soft[j] >= 0.0) soft[j] /= sum;
-                if (rootNode->policy[j] > 0.0 &&
-                    fileContents[i].probabilities[j] > 0) {
-                  kld += -1.0f * soft[j] *
-                    std::log(fileContents[i].probabilities[j] / soft[j]);
-                }
-              }
-              if (kld < bestkld) {
-                bestkld = kld;
-                besttemp = temp;
-              }
-            }
-            std::cerr << i << " " << besttemp << " " << bestkld << std::endl;
-            */
-            for (int j = 0; j < 1858; j++) {
-              /*
-              if (rootNode->policy[j] >= 0.0) {
-                std::cerr << i << " " << j << " " << rootNode->policy[j] << " "
-                          << fileContents[i].probabilities[j] << std::endl;
-              }
-              */
-              fileContents[i].probabilities[j] = rootNode->policy[j];
-            }
-          }
-          if (static_cast<long>(i) < static_cast<long>(fileContents.size() - 1)) {
-            int transform = TransformForPosition(input_format, history);
-            int idx = moves[i].as_nn_index(transform);
-            if (rootNode->children[idx] == nullptr) {
-              break;
-            }
-            rootNode = rootNode->children[idx];
-            history.Append(moves[i]);
-          }
-        }
-      }
 
-      PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                    &board, &rule50ply, &gameply);
-      history.Reset(board, rule50ply, gameply);
-      long last_rescore = -1;
-      orig_counts[ResultForData(fileContents[0]) + 1]++;
-      fixed_counts[ResultForData(fileContents[0]) + 1]++;
-      for (long unsigned int i = 0; i < moves.size(); i++) {
-        history.Append(moves[i]);
-        const auto& board = history.Last().GetBoard();
-        if (board.castlings().no_legal_castle() &&
-            history.Last().GetRule50Ply() == 0 &&
-            (board.ours() | board.theirs()).count() <=
-                tablebase->max_cardinality()) {
-          ProbeState state;
-          WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
-          // Only fail state means the WDL is wrong, probe_wdl may produce
-          // correct result with a stat other than OK.
-          if (state != FAIL) {
-            int8_t score_to_apply = 0;
-            if (wdl == WDL_WIN) {
-              score_to_apply = 1;
-            } else if (wdl == WDL_LOSS) {
-              score_to_apply = -1;
-            }
-	    if(score_to_apply != 0){ // Rmobility: only fix if won or lost
-	      // std::cout << "Found a TB win/loss at position: " << i << std::endl;
-	      for (long j = i + 1; j > last_rescore; j--) {
-		if (ResultForData(fileContents[j]) != score_to_apply) {
-		  if (j == static_cast<long>(i + 1) && last_rescore == -1) {
-		    fixed_counts[ResultForData(fileContents[0]) + 1]--;
-		    bool flip = (i % 2) == 0;
-		    fixed_counts[(flip ? -score_to_apply : score_to_apply) + 1]++;
-		    // std::cout << "Rescoring: " << file << " "  << "position: " << j << " " <<
-		    //   fileContents[j].result_q << " -> "
-		    //   << static_cast<float>(score_to_apply)
-		    //   << std::endl;
-		  }
-		  rescored += 1;
-                delta += abs(ResultForData(fileContents[j]) - score_to_apply);
-                /*
-		  std::cerr << "Rescoring: " << (int)fileContents[j].result << " ->
-		  "
-		  << (int)score_to_apply
-		  << std::endl;
-		*/
-		}
-
-		// We are only here if score_to_apply is not 0
-		// if (score_to_apply == 0) {
-		//   fileContents[j].result_d = 1.0f;
-		// } else {
-		  fileContents[j].result_d = 0.0f;
-		// }
-		fileContents[j].result_q = static_cast<float>(score_to_apply);
-		score_to_apply = -score_to_apply;
-	      }
-	      last_rescore = i + 1;
-	    }
-	  }
-        }
-      }
-      PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                    &board, &rule50ply, &gameply);
-      history.Reset(board, rule50ply, gameply);
-      for (long unsigned int i = 0; i < moves.size(); i++) {
-        history.Append(moves[i]);
-        const auto& board = history.Last().GetBoard();
-        if (board.castlings().no_legal_castle() &&
-            history.Last().GetRule50Ply() != 0 &&
-            (board.ours() | board.theirs()).count() <=
-	      tablebase->max_cardinality()) {
-
-	  // Rmobility, do not trust TB draws, adjust score only if it is a win/loss,
-	  // which is pretty much the opposite of this block did before my changes.
-
-          ProbeState state;
-          WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
-          // Only fail state means the WDL is wrong, probe_wdl may produce
-          // correct result with a stat other than OK.
-          if (state != FAIL) {
-            int8_t score_to_apply = 0;
-            if (wdl == WDL_WIN) {
-              score_to_apply = 1;
-            } else if (wdl == WDL_LOSS) {
-              score_to_apply = -1;
-            }
-
-            // If the WDL result disagrees with the game outcome, make it a
-            // draw. WDL draw is always draw regardless of prior moves since
-            // zero, so that clearly works. Otherwise, the WDL result could be
-            // correct or draw, so best we can do is change scores that don't
-            // agree, to be a draw. If score was a draw this is a no-op, if it
-            // was opposite it becomes a draw.
-            int8_t new_score =
-                ResultForData(fileContents[i + 1]) != score_to_apply
-                    ? 0
-                    : ResultForData(fileContents[i + 1]);
-            bool dtz_rescored = false;
-            // if score is not already right, and the score to apply isn't 0,
-            // dtz can let us know its definitely correct.
-            if (ResultForData(fileContents[i + 1]) != score_to_apply &&
-                score_to_apply != 0) {
-              // Any repetitions in the history since last 50 ply makes it risky
-              // to assume dtz is still correct.
-              int steps = history.Last().GetRule50Ply();
-              bool no_reps = true;
-              for (int i = 0; i < steps; i++) {
-                // If game started from non-zero 50 move rule, this could
-                // underflow. Only safe option is to assume there were
-                // repetitions before this point.
-                if (history.GetLength() - i - 1 < 0) {
-                  no_reps = false;
-                  break;
-                }
-                if (history.GetPositionAt(history.GetLength() - i - 1)
-                        .GetRepetitions() != 0) {
-                  no_reps = false;
-                  break;
-                }
-              }
-              if (no_reps) {
-                int depth = tablebase->probe_dtz(history.Last(), &state);
-                if (state != FAIL) {
-                  // This should be able to be <= 99 safely, but I've not
-                  // convinced myself thats true.
-                  if (steps + std::abs(depth) < 99) {
-                    rescored3++;
-                    new_score = score_to_apply;
-                    dtz_rescored = true;
-                  }
-                }
-              }
-            }
-
-            // If score is not already a draw, and its not obviously a draw,
-            // check if 50 move rule has advanced so far its obviously a draw.
-            // Obviously not needed if we've already proven with dtz that its a
-            // win/loss.
-            if (ResultForData(fileContents[i + 1]) != 0 &&
-                score_to_apply != 0 && !dtz_rescored) {
-              int depth = tablebase->probe_dtz(history.Last(), &state);
-              if (state != FAIL) {
-                int steps = history.Last().GetRule50Ply();
-                // This should be able to be >= 101 safely, but I've not
-                // convinced myself thats true.
-                if (steps + std::abs(depth) > 101) {
-                  rescored3++;
-                  new_score = 0;
-                  dtz_rescored = true;
-                }
-              }
-            }
-            if (new_score != ResultForData(fileContents[i + 1])) {
-              rescored2 += 1;
-              /*
-            std::cerr << "Rescoring: " << (int)fileContents[j].result << " -> "
-                      << (int)score_to_apply
-                      << std::endl;
-                      */
-            }
-
-	    // Only rescore if win/loss
-            if (new_score != 0) {
-              fileContents[i + 1].result_d = 0.0f;
-	      // std::cout << "Rescoring at position: " << i + 1 << " from q=" << fileContents[i + 1].result_q << " to q=" << static_cast<float>(new_score) << ". " ;
-	      fileContents[i + 1].result_q = static_cast<float>(new_score);
-	    }
-          }
-        }
-      }
-
-      if (distTemp != 1.0f || distOffset != 0.0f || dtzBoost != 0.0f) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        int move_index = 0;
-        for (auto& chunk : fileContents) {
-          const auto& board = history.Last().GetBoard();
-          std::vector<bool> boost_probs(1858, false);
-          int boost_count = 0;
-
-          if (dtzBoost != 0.0f && board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <= 1) {
-                  // tablebase->max_cardinality()) {
-            MoveList to_boost;
-            MoveList maybe_boost;
-            tablebase->root_probe(history.Last(),
-                                  history.DidRepeatSinceLastZeroingMove(), true,
-                                  &to_boost, &maybe_boost);
-            // If there is only one move, dtm fixup is not helpful.
-            // This code assumes all gaviota 3-4-5 tbs are present, as checked
-            // at startup.
-            if (gaviotaEnabled && maybe_boost.size() > 1 &&
-                (board.ours() | board.theirs()).count() <= 5) {
-              std::vector<unsigned int> dtms;
-              dtms.resize(maybe_boost.size());
-              unsigned int mininum_dtm = 1000;
-              // Only safe moves being considered, boost the smallest dtm
-              // amongst them.
-              for (auto& move : maybe_boost) {
-                Position next_pos = Position(history.Last(), move);
-                unsigned int info;
-                unsigned int dtm;
-                gaviota_tb_probe_hard(next_pos, info, dtm);
-                dtms.push_back(dtm);
-                if (dtm < mininum_dtm) mininum_dtm = dtm;
-              }
-              if (mininum_dtm < 1000) {
-                to_boost.clear();
-                int dtm_idx = 0;
-                for (auto& move : maybe_boost) {
-                  if (dtms[dtm_idx] == mininum_dtm) {
-                    to_boost.push_back(move);
-                  }
-                  dtm_idx++;
-                }
-                policy_dtm_bump++;
-              }
-            }
-            int transform = TransformForPosition(input_format, history);
-            for (auto& move : to_boost) {
-              boost_probs[move.as_nn_index(transform)] = true;
-            }
-            boost_count = to_boost.size();
-          }
-          float sum = 0.0;
-          int prob_index = 0;
-          float preboost_sum = 0.0f;
-          for (auto& prob : chunk.probabilities) {
-            float offset =
-                distOffset +
-                (boost_probs[prob_index] ? (dtzBoost / boost_count) : 0.0f);
-            if (dtzBoost != 0.0f && boost_probs[prob_index]) {
-              preboost_sum += prob;
-              if (prob < 0 || std::isnan(prob))
-                std::cerr << "Bump for move that is illegal????" << std::endl;
-              policy_bump++;
-            }
-            prob_index++;
-            if (prob < 0 || std::isnan(prob)) continue;
-            prob = std::max(0.0f, prob + offset);
-            prob = std::pow(prob, 1.0f / distTemp);
-            sum += prob;
-          }
-          prob_index = 0;
-          float boost_sum = 0.0f;
-          for (auto& prob : chunk.probabilities) {
-            if (dtzBoost != 0.0f && boost_probs[prob_index]) {
-              boost_sum += prob / sum;
-            }
-            prob_index++;
-            if (prob < 0 || std::isnan(prob)) continue;
-            prob /= sum;
-          }
-          if (boost_count > 0) {
-            policy_nobump_total_hist[(int)(preboost_sum * 10)]++;
-            policy_bump_total_hist[(int)(boost_sum * 10)]++;
-          }
-          history.Append(moves[move_index]);
-          move_index++;
-        }
-      }
-
-      // Make move_count field plies_left for moves left head.
-      int offset = 0;
-      bool all_draws = true;
-      for (auto& chunk : fileContents) {
-        // plies_left can't be 0 for real v5 data, so if it is 0 it must be a v4
-        // conversion, and we should populate it ourselves with a better
-        // starting estimate.
-        if (chunk.plies_left == 0.0f) {
-          chunk.plies_left = (int)(fileContents.size() - offset);
-        }
-        offset++;
-        all_draws = all_draws && (ResultForData(chunk) == 0);
-      }
-
-      // Correct plies_left using Gaviota TBs for 5 piece and less positions.
-      if (gaviotaEnabled && !all_draws) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        int last_rescore = 0;
-        for (long unsigned int i = 0; i < moves.size(); i++) {
-          history.Append(moves[i]);
-          const auto& board = history.Last().GetBoard();
-
-          // Gaviota TBs don't have 50 move rule.
-          // Only consider positions that are not draw after rescoring.
-          if ((ResultForData(fileContents[i + 1]) != 0) &&
-              board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <= 5) {
-            std::vector<int> dtms;
-            unsigned int info;
-            unsigned int dtm;
-            gaviota_tb_probe_hard(history.Last(), info, dtm);
-            if (info != tb_WMATE && info != tb_BMATE) {
-              // Not a win for either player.
-              continue;
-            }
-            int steps = history.Last().GetRule50Ply();
-            if ((dtm + steps > 99) && (dtm <= fileContents[i + 1].plies_left)) {
-              // Following DTM could trigger 50 move rule and the current
-              // move_count is more than DTM.
-              // If DTM is more than the current move_count then we can rescore
-              // using it since DTM50 is not shorter than DTM.
-              continue;
-            }
-            bool no_reps = true;
-            for (int i = 0; i < steps; i++) {
-              // If game started from non-zero 50 move rule, this could
-              // underflow. Only safe option is to assume there were repetitions
-              // before this point.
-              if (history.GetLength() - i - 1 < 0) {
-                no_reps = false;
-                break;
-              }
-              if (history.GetPositionAt(history.GetLength() - i - 1)
-                      .GetRepetitions() != 0) {
-                no_reps = false;
-                break;
-              }
-            }
-            if (!no_reps) {
-              // There were repetitions. Do nothing since DTM path
-              // could trigger draw by repetition.
-              continue;
-            }
-            gaviota_dtm_rescores++;
-            int j;
-            for (j = i; j >= -1; j--) {
-              if (j <= last_rescore) {
-                break;
-              }
-              // std::cerr << j << " " << int(fileContents[j + 1].move_count) <<
-              // " -> " << int(dtm + (i - j)) << std::endl;
-              fileContents[j + 1].plies_left = int(dtm + (i - j));
-            }
-            last_rescore = i;
-          }
-        }
-      }
+      // int number_of_pieces = 6;
+      // float delta_q = 0.1; // extract positions with 0.5 - delta < abs(q) < 0.5 + delta
       
-      /*
-      def apply_alpha(qs, alpha):
-        if not isinstance(qs, np.ndarray):
-            qs = np.array(qs)
-
-        n = len(qs)
-        signs = (-1)**np.arange(n)
-        qs = qs * signs
-        # Create an array with alpha^(i-j) at (i, j) if this is at most 1 and 0 otherwise.
-        q_st = np.zeros(n)
-        val = 0
-        for i in range(n):
-            if i == 0:
-                val = qs[-1]
-            else:
-                val = alpha * val + qs[-i-1] * (1- alpha)
-            q_st[-i-1] = val
-
-        q_st = q_st * signs
-
-        return q_st
-      */
-      float alpha = 1.0f-(1.0f/6.0f);
-      std::vector<float> qs;
-      std::vector<float> ds;
-      std::vector<uint16_t> played_idxs;
-      std::vector<int> alt_signs;
-      int sign = 1;
-      int size = fileContents.size();
-      std::vector<float> qs_st(size, 0.0f);
-      std::vector<float> ds_st(size, 0.0f);
-      for (int i = 0; i < size; ++i) {
-        qs.push_back(fileContents[i].root_q);
-        ds.push_back(fileContents[i].root_d);
-        played_idxs.push_back(fileContents[i].played_idx);
-        alt_signs.push_back(sign);
-        sign *= -1;
-      }
-      //signifies end of game
-      played_idxs.push_back(65535);
-      played_idxs.push_back(65535);
-      for (int i = 0; i < size; ++i) {
-        qs[i] *= alt_signs[i];
-      }
-      float val = 0.0f;
-      float d_val = 0.0f;
-      for (int i = 0; i < size; ++i) {
-        if(i == 0){
-          val = qs.back();
-          d_val = ds.back();
-        } else {
-          val = alpha * val + qs[size+(-i-1)] * (1 - alpha);
-          d_val = alpha * d_val + ds[size+(-i-1)] * (1 - alpha);
-        }
-        qs_st[size+(-i-1)] = val;
-        ds_st[size+(-i-1)] = d_val;
-      }
-      for (int i = 0; i < size; ++i) {
-        qs_st[i] *= alt_signs[i];
-      }
-      for (int i = 0; i < size; ++i) {
-        fileContents[i].q_st = qs_st[i];
-        fileContents[i].d_st = ds_st[i];
-        fileContents[i].opp_played_idx = played_idxs[i+1];
-        fileContents[i].next_played_idx = played_idxs[i+2];
+      PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
+		    &board, &rule50ply, &gameply);
+      history.Reset(board, rule50ply, gameply);
+      for (long unsigned int i = 0; i < moves.size(); i++) {
+	history.Append(moves[i]);
+	const auto& board = history.Last().GetBoard();
+	if ((board.ours() | board.theirs()).count() == number_of_pieces &&
+	    0.5 - delta_q < std::abs(fileContents[i].root_q) &&
+	    0.5 + delta_q > std::abs(fileContents[i].root_q)
+	    ) {
+	  std::string fen = GetFen(history.Last());
+	  // std::cout << "Number of pieces is: " << number_of_pieces <<
+	  //   " and q is " << fileContents[i].root_q << "FEN " << fen << "\n";
+	  std::cout << "[FEN \"" << fen << "\"]\n\n\n";
+	  break; // Only extract one position per game
+	}
       }
 
-      // Correct move_count using DTZ for 3 piece no-pawn positions only.
-      // If Gaviota TBs are enabled no need to use syzygy.
-      if (!gaviotaEnabled && !all_draws) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        for (long unsigned int i = 0; i < moves.size(); i++) {
-          history.Append(moves[i]);
-          const auto& board = history.Last().GetBoard();
-          if (board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <= 3 &&
-              board.pawns().empty()) {
-            ProbeState state;
-            WDLScore wdl = tablebase->probe_wdl(history.Last(), &state);
-            // Only fail state means the WDL is wrong, probe_wdl may produce
-            // correct result with a stat other than OK.
-            if (state != FAIL) {
-              int8_t score_to_apply = 0; // OK for Rmobility
-              if (wdl == WDL_WIN) {
-                score_to_apply = 1;
-              } else if (wdl == WDL_LOSS) {
-                score_to_apply = -1;
-              }
-              // No point updating for draws.
-              if (score_to_apply == 0) continue;
-              // Any repetitions in the history since last 50 ply makes it risky
-              // to assume dtz is still correct.
-              int steps = history.Last().GetRule50Ply();
-              bool no_reps = true;
-              for (int i = 0; i < steps; i++) {
-                // If game started from non-zero 50 move rule, this could
-                // underflow. Only safe option is to assume there were
-                // repetitions before this point.
-                if (history.GetLength() - i - 1 < 0) {
-                  no_reps = false;
-                  break;
-                }
-                if (history.GetPositionAt(history.GetLength() - i - 1)
-                        .GetRepetitions() != 0) {
-                  no_reps = false;
-                  break;
-                }
-              }
-              if (no_reps) {
-                int depth = tablebase->probe_dtz(history.Last(), &state);
-                if (state != FAIL) {
-                  // if depth == -1 this is wrong, since that is mate and the
-                  // answer should be 0, but the move before depth is -2. Since
-                  // data never contains mate position, ignore that discrepency.
-                  int converted_ply_remaining = std::abs(depth);
-                  // This should be able to be <= 99 safely, but I've not
-                  // convinced myself thats true.
-                  if (steps + std::abs(depth) < 99) {
-                    fileContents[i + 1].plies_left = converted_ply_remaining;
-                  }
-                  if (steps == 0) {
-                    for (int j = i; j >= 0; j--) {
-                      fileContents[j].plies_left =
-                          converted_ply_remaining + (i + 1 - j);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      // Deblunder only works from v6 data onwards. We therefore check
-      // the visits field which is 0 if we're dealing with upgraded data.
-      if (deblunderEnabled && fileContents.back().visits > 0) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        for (long unsigned int i = 0; i < moves.size(); i++) {
-          history.Append(moves[i]);
-          const auto& board = history.Last().GetBoard();
-          if (board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <=
-	      tablebase->max_cardinality()) { // This should be safe from a R-mobility perspective, I think this just finds the last move *before* entering TB domain.
-            history.Pop();
-            break;
-          }
-        }
-        float activeZ[3] = {fileContents.back().result_q,
-                            fileContents.back().result_d,
-                            fileContents.back().plies_left};
-        bool deblunderingStarted = false;
-        while (true) {
-          auto& cur = fileContents[history.GetLength() - 1];
-          // A blunder is defined by the played move being worse than the
-          // best move by a defined threshold, missing a forced win, or
-          // playing into a proven loss without being forced.
-          bool deblunderTriggerThreshold =
-              (cur.best_q - cur.played_q >
-               deblunderQBlunderThreshold - deblunderQBlunderWidth / 2.0);
-          bool deblunderTriggerTerminal =
-              (cur.best_q > -1 && cur.played_q < 1 &&
-               ((cur.best_q == 1 && ((cur.invariance_info & 8) != 0)) ||
-                cur.played_q == -1));
-          if (deblunderTriggerThreshold || deblunderTriggerTerminal) {
-            float newZRatio = 1.0f;
-            // If width > 0 and the deblunder didn't involve a terminal
-            // position, we apply a soft threshold by averaging old and new Z.
-            if (deblunderQBlunderWidth > 0 && !deblunderTriggerTerminal) {
-              newZRatio = std::min(1.0f, (cur.best_q - cur.played_q -
-                                          deblunderQBlunderThreshold) /
-                                                 deblunderQBlunderWidth +
-                                             0.5f);
-            }
-            // Instead of averaging, a randomization can be applied here with
-            // newZRatio = newZRatio > rand( [0, 1) ) ? 1.0f : 0.0f;
-            activeZ[0] = (1 - newZRatio) * activeZ[0] + newZRatio * cur.best_q;
-            activeZ[1] = (1 - newZRatio) * activeZ[1] + newZRatio * cur.best_d;
-            activeZ[2] = (1 - newZRatio) * activeZ[2] + newZRatio * cur.best_m;
-            deblunderingStarted = true;
-            blunders += 1;
-            /* std::cout << "Blunder detected. Best move q=" << cur.best_q <<
-             " played move q=" << cur.played_q; */
-          }
-          if (deblunderingStarted) {
-            /*
-            std::cerr << "Deblundering: "
-                      << fileContents[history.GetLength() - 1].best_q << " "
-                      << fileContents[history.GetLength() - 1].best_d << " "
-                      << (int)fileContents[history.GetLength() - 1].result << "
-            "
-                      << (int)activeZ << std::endl;
-                      */
-            fileContents[history.GetLength() - 1].result_q = activeZ[0];
-            fileContents[history.GetLength() - 1].result_d = activeZ[1];
-            fileContents[history.GetLength() - 1].plies_left = activeZ[2];
-          }
-          if (history.GetLength() == 1) break;
-          // Q values are always from the player to move.
-          activeZ[0] = -activeZ[0];
-          // Estimated remaining plies left has to be increased.
-          activeZ[2] += 1.0f;
-          history.Pop();
-        }
-      }
-      if (newInputFormat != -1) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        ChangeInputFormat(newInputFormat, &fileContents[0], history);
-        for (long unsigned int i = 0; i < moves.size(); i++) {
-          history.Append(moves[i]);
-          ChangeInputFormat(newInputFormat, &fileContents[i + 1], history);
-        }
-      }
-
-      if (!outputDir.empty()) {
-        std::string fileName = file.substr(file.find_last_of("/\\") + 1);
-        TrainingDataWriter writer(outputDir + "/" + fileName);
-	// std::cout << "Ready rescoring this game, now follows a list of q values: ";
-	int i = 0;
-        for (auto chunk : fileContents) {
-          // Don't save chunks that just provide move history.
-          if ((chunk.invariance_info & 64) == 0) {
-	    // std::cout << "i:" << i << " q:" << chunk.result_q << " ";
-	    i++;
-            writer.WriteChunk(chunk);
-          }
-        }
-	// std::cout << "\n";
-      }
-
-      // Output data in Stockfish plain format.
-      if (!nnue_plain_file.empty()) {
-        static Mutex mutex;
-        std::ostringstream out;
-        pblczero::NetworkFormat::InputFormat format;
-        if (newInputFormat != -1) {
-          format =
-              static_cast<pblczero::NetworkFormat::InputFormat>(newInputFormat);
-        } else {
-          format = input_format;
-        }
-        PopulateBoard(format, PlanesFromTrainingData(fileContents[0]), &board,
-                      &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        for (long unsigned int i = 0; i < fileContents.size(); i++) {
-          auto chunk = fileContents[i];
-          Position p = history.Last();
-          if (chunk.visits > 0) {
-            // Format is v6 and position is evaluated.
-            Move m = MoveFromNNIndex(
-                flags.nnue_best_move ? chunk.best_idx : chunk.played_idx,
-                TransformForPosition(format, history));
-            float q = flags.nnue_best_score ? chunk.best_q : chunk.played_q;
-            out << AsNnueString(p, m, q, round(chunk.result_q));
-          } else if (i < moves.size()) {
-            out << AsNnueString(p, moves[i], chunk.best_q,
-                                round(chunk.result_q));
-          }
-          if (i < moves.size()) {
-            history.Append(moves[i]);
-          }
-        }
-        std::ofstream file;
-        Mutex::Lock lock(mutex);
-        file.open(nnue_plain_file, std::ios_base::app);
-        if (file.is_open()) {
-          file << out.str();
-          file.close();
-        }
-      }
     } catch (Exception& ex) {
       std::cerr << "While processing: " << file
                 << " - Exception thrown: " << ex.what() << std::endl;
@@ -1201,16 +553,16 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
 
 void ProcessFiles(const std::vector<std::string>& files,
                   SyzygyTablebase* tablebase, std::string outputDir,
-                  float distTemp, float distOffset, float dtzBoost,
+                  float delta_q, int number_of_pieces, float dtzBoost,
                   int newInputFormat, int offset, int mod,
                   std::string nnue_plain_file, ProcessFileFlags flags) {
-  std::cerr << "Thread: " << offset << " starting" << std::endl;
+  // std::cerr << "Thread: " << offset << " starting" << std::endl;
   for (long unsigned int i = offset; i < files.size(); i += mod) {
     if (files[i].rfind(".gz") != files[i].size() - 3) {
       std::cerr << "Skipping: " << files[i] << std::endl;
       continue;
     }
-    ProcessFile(files[i], tablebase, outputDir, distTemp, distOffset, dtzBoost,
+    ProcessFile(files[i], tablebase, outputDir, delta_q, number_of_pieces, dtzBoost,
                 newInputFormat, nnue_plain_file, flags);
   }
 }
@@ -1307,7 +659,9 @@ void RescoreLoop::RunLoop() {
   options_.Add<StringOption>(kNnuePlainFileId);
   options_.Add<BoolOption>(kNnueBestScoreId) = true;
   options_.Add<BoolOption>(kNnueBestMoveId) = false;
-  options_.Add<BoolOption>(kDeleteFilesId) = true;
+  options_.Add<BoolOption>(kDeleteFilesId) = false;
+  options_.Add<IntOption>(kNumberOfPiecesId, 2, 32) = 6;
+  options_.Add<FloatOption>(kDeltaQId, 0.001, 0.4) = 0.1;
 
   SelfPlayTournament::PopulateOptions(&options_);
 
@@ -1391,8 +745,8 @@ void RescoreLoop::RunLoop() {
         ProcessFiles(
             files, &tablebase,
             options_.GetOptionsDict().Get<std::string>(kOutputDirId),
-            options_.GetOptionsDict().Get<float>(kTempId),
-            options_.GetOptionsDict().Get<float>(kDistributionOffsetId),
+            options_.GetOptionsDict().Get<float>(kDeltaQId),
+            options_.GetOptionsDict().Get<int>(kNumberOfPiecesId),
             dtz_boost, options_.GetOptionsDict().Get<int>(kNewInputFormatId),
             offset_val, threads,
             options_.GetOptionsDict().Get<std::string>(kNnuePlainFileId),
@@ -1406,48 +760,48 @@ void RescoreLoop::RunLoop() {
   } else {
     ProcessFiles(files, &tablebase,
                  options_.GetOptionsDict().Get<std::string>(kOutputDirId),
-                 options_.GetOptionsDict().Get<float>(kTempId),
-                 options_.GetOptionsDict().Get<float>(kDistributionOffsetId),
+                 options_.GetOptionsDict().Get<float>(kDeltaQId),
+                 options_.GetOptionsDict().Get<int>(kNumberOfPiecesId),
                  dtz_boost,
                  options_.GetOptionsDict().Get<int>(kNewInputFormatId), 0, 1,
                  options_.GetOptionsDict().Get<std::string>(kNnuePlainFileId),
                  flags);
   }
-  std::cout << "Games processed: " << games << std::endl;
-  std::cout << "Positions processed: " << positions << std::endl;
-  std::cout << "Rescores performed: " << rescored << std::endl;
-  std::cout << "Cumulative outcome change: " << delta << std::endl;
-  std::cout << "Secondary rescores performed: " << rescored2 << std::endl;
-  std::cout << "Secondary rescores performed used dtz: " << rescored3
-            << std::endl;
-  std::cout << "Blunders picked up by deblunder threshold: " << blunders
-            << std::endl;
-  std::cout << "Number of policy values boosted by dtz or dtm " << policy_bump
-            << std::endl;
-  std::cout << "Number of policy values boosted by dtm " << policy_dtm_bump
-            << std::endl;
-  std::cout << "Orig policy_sum dist of boost candidate:";
-  std::cout << std::endl;
-  int event_sum = 0;
-  for (int i = 0; i < 11; i++) event_sum += policy_bump_total_hist[i];
-  for (int i = 0; i < 11; i++) {
-    std::cout << " " << std::setprecision(4)
-              << ((float)policy_nobump_total_hist[i] / (float)event_sum);
-  }
-  std::cout << std::endl;
-  std::cout << "Boosted policy_sum dist of boost candidate:";
-  std::cout << std::endl;
-  for (int i = 0; i < 11; i++) {
-    std::cout << " " << std::setprecision(4)
-              << ((float)policy_bump_total_hist[i] / (float)event_sum);
-  }
-  std::cout << std::endl;
-  std::cout << "Original L: " << orig_counts[0] << " D: " << orig_counts[1]
-            << " W: " << orig_counts[2] << std::endl;
-  std::cout << "After L: " << fixed_counts[0] << " D: " << fixed_counts[1]
-            << " W: " << fixed_counts[2] << std::endl;
-  std::cout << "Gaviota DTM move_count rescores: " << gaviota_dtm_rescores
-            << std::endl;
+  // std::cout << "Games processed: " << games << std::endl;
+  // std::cout << "Positions processed: " << positions << std::endl;
+  // std::cout << "Rescores performed: " << rescored << std::endl;
+  // std::cout << "Cumulative outcome change: " << delta << std::endl;
+  // std::cout << "Secondary rescores performed: " << rescored2 << std::endl;
+  // std::cout << "Secondary rescores performed used dtz: " << rescored3
+  //           << std::endl;
+  // std::cout << "Blunders picked up by deblunder threshold: " << blunders
+  //           << std::endl;
+  // std::cout << "Number of policy values boosted by dtz or dtm " << policy_bump
+  //           << std::endl;
+  // std::cout << "Number of policy values boosted by dtm " << policy_dtm_bump
+  //           << std::endl;
+  // std::cout << "Orig policy_sum dist of boost candidate:";
+  // std::cout << std::endl;
+  // int event_sum = 0;
+  // for (int i = 0; i < 11; i++) event_sum += policy_bump_total_hist[i];
+  // for (int i = 0; i < 11; i++) {
+  //   std::cout << " " << std::setprecision(4)
+  //             << ((float)policy_nobump_total_hist[i] / (float)event_sum);
+  // }
+  // std::cout << std::endl;
+  // std::cout << "Boosted policy_sum dist of boost candidate:";
+  // std::cout << std::endl;
+  // for (int i = 0; i < 11; i++) {
+  //   std::cout << " " << std::setprecision(4)
+  //             << ((float)policy_bump_total_hist[i] / (float)event_sum);
+  // }
+  // std::cout << std::endl;
+  // std::cout << "Original L: " << orig_counts[0] << " D: " << orig_counts[1]
+  //           << " W: " << orig_counts[2] << std::endl;
+  // std::cout << "After L: " << fixed_counts[0] << " D: " << fixed_counts[1]
+  //           << " W: " << fixed_counts[2] << std::endl;
+  // std::cout << "Gaviota DTM move_count rescores: " << gaviota_dtm_rescores
+  //           << std::endl;
 }
 
 SelfPlayLoop::SelfPlayLoop() {}
@@ -1473,7 +827,7 @@ void SelfPlayLoop::RunLoop() {
   } else {
     // Send id before starting tournament to allow wrapping client to know
     // who we are.
-    SendId();
+    // SendId();
     SelfPlayTournament tournament(
         options_.GetOptionsDict(),
         std::bind(&UciLoop::SendBestMove, this, std::placeholders::_1),
@@ -1485,7 +839,7 @@ void SelfPlayLoop::RunLoop() {
 }
 
 void SelfPlayLoop::CmdUci() {
-  SendId();
+  // SendId();
   for (const auto& option : options_.ListOptionsUci()) {
     SendResponse(option);
   }
