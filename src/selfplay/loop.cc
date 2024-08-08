@@ -262,213 +262,6 @@ void Validate(const std::vector<V7TrainingData>& fileContents,
   }
 }
 
-void gaviota_tb_probe_hard(const Position& pos, unsigned int& info,
-                           unsigned int& dtm) {
-  unsigned int wsq[17];
-  unsigned int bsq[17];
-  unsigned char wpc[17];
-  unsigned char bpc[17];
-
-  auto stm = pos.IsBlackToMove() ? tb_BLACK_TO_MOVE : tb_WHITE_TO_MOVE;
-  auto& board = pos.IsBlackToMove() ? pos.GetThemBoard() : pos.GetBoard();
-  auto epsq = tb_NOSQUARE;
-  for (auto sq : board.en_passant()) {
-    // Our internal representation stores en_passant 2 rows away
-    // from the actual sq.
-    if (sq.row() == 0) {
-      epsq = (TB_squares)(sq.as_int() + 16);
-    } else {
-      epsq = (TB_squares)(sq.as_int() - 16);
-    }
-  }
-  int idx = 0;
-  for (auto sq : (board.ours() & board.kings())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_KING;
-    idx++;
-  }
-  for (auto sq : (board.ours() & board.knights())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_KNIGHT;
-    idx++;
-  }
-  for (auto sq : (board.ours() & board.queens())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_QUEEN;
-    idx++;
-  }
-  for (auto sq : (board.ours() & board.rooks())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_ROOK;
-    idx++;
-  }
-  for (auto sq : (board.ours() & board.bishops())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_BISHOP;
-    idx++;
-  }
-  for (auto sq : (board.ours() & board.pawns())) {
-    wsq[idx] = (TB_squares)sq.as_int();
-    wpc[idx] = tb_PAWN;
-    idx++;
-  }
-  wsq[idx] = tb_NOSQUARE;
-  wpc[idx] = tb_NOPIECE;
-
-  idx = 0;
-  for (auto sq : (board.theirs() & board.kings())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_KING;
-    idx++;
-  }
-  for (auto sq : (board.theirs() & board.knights())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_KNIGHT;
-    idx++;
-  }
-  for (auto sq : (board.theirs() & board.queens())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_QUEEN;
-    idx++;
-  }
-  for (auto sq : (board.theirs() & board.rooks())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_ROOK;
-    idx++;
-  }
-  for (auto sq : (board.theirs() & board.bishops())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_BISHOP;
-    idx++;
-  }
-  for (auto sq : (board.theirs() & board.pawns())) {
-    bsq[idx] = (TB_squares)sq.as_int();
-    bpc[idx] = tb_PAWN;
-    idx++;
-  }
-  bsq[idx] = tb_NOSQUARE;
-  bpc[idx] = tb_NOPIECE;
-
-  tb_probe_hard(stm, epsq, tb_NOCASTLE, wsq, bsq, wpc, bpc, &info, &dtm);
-}
-
-void ChangeInputFormat(int newInputFormat, V7TrainingData* data,
-                       const PositionHistory& history) {
-  data->input_format = newInputFormat;
-  auto input_format =
-      static_cast<pblczero::NetworkFormat::InputFormat>(newInputFormat);
-
-  // Populate planes.
-  int transform;
-  InputPlanes planes = EncodePositionForNN(input_format, history, 8,
-                                           FillEmptyHistory::NO, &transform);
-  int plane_idx = 0;
-  for (auto& plane : data->planes) {
-    plane = ReverseBitsInBytes(planes[plane_idx++].mask);
-  }
-
-  if ((data->invariance_info & 7) != transform) {
-    // Probabilities need reshuffling.
-    float newProbs[1858];
-    std::fill(std::begin(newProbs), std::end(newProbs), -1);
-    bool played_fixed = false;
-    bool best_fixed = false;
-    for (auto move : history.Last().GetBoard().GenerateLegalMoves()) {
-      int i = move.as_nn_index(transform);
-      int j = move.as_nn_index(data->invariance_info & 7);
-      newProbs[i] = data->probabilities[j];
-      // For V6 data only, the played/best idx need updating.
-      if (data->visits > 0) {
-        if (data->played_idx == j && !played_fixed) {
-          data->played_idx = i;
-          played_fixed = true;
-        }
-        if (data->best_idx == j && !best_fixed) {
-          data->best_idx = i;
-          best_fixed = true;
-        }
-      }
-    }
-    for (int i = 0; i < 1858; i++) {
-      data->probabilities[i] = newProbs[i];
-    }
-  }
-
-  const auto& position = history.Last();
-  const auto& castlings = position.GetBoard().castlings();
-  // Populate castlings.
-  // For non-frc trained nets, just send 1 like we used to.
-  uint8_t queen_side = 1;
-  uint8_t king_side = 1;
-  // If frc trained, send the bit mask representing rook position.
-  if (Is960CastlingFormat(input_format)) {
-    queen_side <<= castlings.our_queenside_rook();
-    king_side <<= castlings.our_kingside_rook();
-  }
-
-  data->castling_us_ooo = castlings.we_can_000() ? queen_side : 0;
-  data->castling_us_oo = castlings.we_can_00() ? king_side : 0;
-  data->castling_them_ooo = castlings.they_can_000() ? queen_side : 0;
-  data->castling_them_oo = castlings.they_can_00() ? king_side : 0;
-
-  // Save the bits that aren't connected to the input_format.
-  uint8_t invariance_mask = data->invariance_info & 0x78;
-  // Other params.
-  if (IsCanonicalFormat(input_format)) {
-    data->side_to_move_or_enpassant =
-        position.GetBoard().en_passant().as_int() >> 56;
-    if ((transform & FlipTransform) != 0) {
-      data->side_to_move_or_enpassant =
-          ReverseBitsInBytes(data->side_to_move_or_enpassant);
-    }
-    // Send transform in deprecated move count so rescorer can reverse it to
-    // calculate the actual move list from the input data.
-    data->invariance_info =
-        transform | (position.IsBlackToMove() ? (1u << 7) : 0u);
-  } else {
-    data->side_to_move_or_enpassant = position.IsBlackToMove() ? 1 : 0;
-    data->invariance_info = 0;
-  }
-  // Put the mask back.
-  data->invariance_info |= invariance_mask;
-}
-
-int ResultForData(const V7TrainingData& data) {
-  if(data.result_q < 0){
-    return -1;
-  }
-  if(data.result_q == 0){
-    return 0;
-  }
-  // Must be greater than 0, but having a simple if clause make the compiler warn about control reaches end of non-void function [-Wreturn-type]
-  // if(data.result_q > 0){
-  if (! (data.result_q > 0)) {
-    std::cout << "Strange Q value found: " << data.result_q << "\n";
-    throw Exception("Range Violation");
-  }
-  return 1;
-}
-
-std::string AsNnueString(const Position& p, Move m, float q, int result) {
-  std::ostringstream out;
-  out << "fen " << GetFen(p) << std::endl;
-  m = p.GetBoard().GetLegacyMove(m);
-  if (m.from().row() == ChessBoard::Rank::RANK_7 &&
-      p.GetBoard().pawns().get(m.from()) &&
-      m.promotion() == Move::Promotion::None) {
-    m.SetPromotion(Move::Promotion::Knight);
-  }
-  if (p.IsBlackToMove()) m.Mirror();
-  out << "move " << m.as_string() << std::endl;
-  // Formula from PR1477 adjuster for SF PawnValueEg.
-  out << "score " << round(660.6 * q / (1 - 0.9751875 * std::pow(q, 10)))
-      << std::endl;
-  out << "ply " << p.GetGamePly() << std::endl;
-  out << "result " << result << std::endl;
-  out << "e" << std::endl;
-  return out.str();
-}
-
 struct ProcessFileFlags {
   bool delete_files : 1;
   bool nnue_best_score : 1;
@@ -517,23 +310,18 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       history.Reset(board, rule50ply, gameply);
       uint64_t rootHash = HashCat(board.Hash(), rule50ply);
 
-      // int number_of_pieces = 6;
-      // float delta_q = 0.1; // extract positions with 0.5 - delta < abs(q) < 0.5 + delta
-      
       PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
 		    &board, &rule50ply, &gameply);
       history.Reset(board, rule50ply, gameply);
       for (long unsigned int i = 0; i < moves.size(); i++) {
 	history.Append(moves[i]);
 	const auto& board = history.Last().GetBoard();
-	if ((board.ours() | board.theirs()).count() == number_of_pieces &&
-	    0.5 - delta_q < std::abs(fileContents[i].root_q) &&
-	    0.5 + delta_q > std::abs(fileContents[i].root_q)
-	    ) {
+	if((std::abs(fileContents[i].root_q) < 0.1) && (fileContents[i].root_d < 0.3)) {
+
 	  std::string fen = GetFen(history.Last());
-	  // std::cout << "Number of pieces is: " << number_of_pieces <<
-	  //   " and q is " << fileContents[i].root_q << "FEN " << fen << "\n";
 	  std::cout << "[FEN \"" << fen << "\"]\n\n\n";
+	  std::cout << " draw: " << fileContents[i].root_d << " root_q: " << fileContents[i].root_q
+		    << "\n";
 	  break; // Only extract one position per game
 	}
       }
