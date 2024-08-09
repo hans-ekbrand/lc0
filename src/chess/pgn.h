@@ -74,6 +74,7 @@ class PgnReader {
     std::string line;
     bool in_comment = false;
     bool started = false;
+    // int linecounter = 0; // Useful to locate single bad lines in large a opening book.
     while (GzGetLine(file, line)) {
       // Check if we have a UTF-8 BOM. If so, just ignore it.
       // Only supposed to exist in the first line, but should not matter.
@@ -91,9 +92,11 @@ class PgnReader {
             [](unsigned char c) { return std::toupper(c); }  // correct
         );
         if (uc_line.find("[FEN \"", 0) == 0) {
+	  // linecounter++;
           auto start_trimmed = line.substr(6);
           cur_startpos_ = start_trimmed.substr(0, start_trimmed.find('"'));
           cur_board_.SetFromFen(cur_startpos_);
+	  // CERR << "line number: " << linecounter << "\n";
         }
         continue;
       }

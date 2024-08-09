@@ -93,6 +93,7 @@ class SearchParams {
   float GetFpuValue(bool at_root) const {
     return at_root ? kFpuValueAtRoot : kFpuValue;
   }
+  int GetTempEnds() const { return kTempEnds; }					      
   int GetCacheHistoryLength() const { return kCacheHistoryLength; }
   float GetPolicySoftmaxTemp() const { return kPolicySoftmaxTemp; }
   int GetMaxCollisionEvents() const { return kMaxCollisionEvents; }
@@ -100,7 +101,7 @@ class SearchParams {
   bool GetOutOfOrderEval() const { return kOutOfOrderEval; }
   bool GetStickyEndgames() const { return kStickyEndgames; }
   bool GetSyzygyFastPlay() const { return kSyzygyFastPlay; }
-  int GetMaxNumberOfPieces() const { return kMaxNumberOfPieces; }  
+  // int GetMaxNumberOfPieces() const { return kMaxNumberOfPieces; }  
   int GetMultiPv() const { return options_.Get<int>(kMultiPvId); }
   bool GetPerPvCounters() const { return options_.Get<bool>(kPerPvCountersId); }
   std::string GetScoreType() const {
@@ -167,6 +168,7 @@ class SearchParams {
   // Search parameter IDs.
   static const OptionId kMiniBatchSizeId;
   static const OptionId kMaxPrefetchBatchId;
+  static const OptionId kTempEndsId;					      
   static const OptionId kCpuctId;
   static const OptionId kCpuctAtRootId;
   static const OptionId kCpuctBaseId;
@@ -197,7 +199,7 @@ class SearchParams {
   static const OptionId kOutOfOrderEvalId;
   static const OptionId kStickyEndgamesId;
   static const OptionId kSyzygyFastPlayId;
-  static const OptionId kMaxNumberOfPiecesId;  
+  // static const OptionId kMaxNumberOfPiecesId;  
   static const OptionId kMultiPvId;
   static const OptionId kPerPvCountersId;
   static const OptionId kScoreTypeId;
@@ -246,6 +248,7 @@ class SearchParams {
   // 2. Parameter has to stay the same during the search.
   // TODO(crem) Some of those parameters can be converted to be dynamic after
   //            trivial search optimizations.
+  const int kTempEnds;					      
   const float kCpuct;
   const float kCpuctAtRoot;
   const float kCpuctBase;
@@ -266,7 +269,7 @@ class SearchParams {
   const bool kOutOfOrderEval;
   const bool kStickyEndgames;
   const bool kSyzygyFastPlay;
-  const int kMaxNumberOfPieces;
+  // const int kMaxNumberOfPieces;
   const FillEmptyHistory kHistoryFill;
   const int kMiniBatchSize;
   const float kMovesLeftMaxEffect;

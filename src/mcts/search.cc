@@ -360,6 +360,9 @@ Search::Search(const NodeTree& tree, Network* network,
           searchmoves_, syzygy_tb_, played_history_,
           params_.GetSyzygyFastPlay(), &tb_hits_, &root_is_in_dtz_, &gaviotaEnabled)),
       uci_responder_(std::move(uci_responder)) {
+
+  LOGFILE << "TempEnds found by search: " << params_.GetTempEnds();
+			     
   if (params_.GetMaxConcurrentSearchers() != 0) {
     pending_searchers_.store(params_.GetMaxConcurrentSearchers(),
                              std::memory_order_release);
@@ -892,11 +895,10 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
     }
   }
 
-  // Apply zero temp when the "opening" is finished.
-  const int k = 5;
+  // Apply zero temp when the "opening" is finished, if the user has set TempEnds
   const auto& board = played_history_.Last().GetBoard();
-  if ((board.ours() | board.theirs()).count() <= k) {
-    // LOGFILE << "Setting temperature to zero since total piece count is less than: " << k << "\n";
+  if (params_.GetTempEnds() < 32 &&
+      (board.ours() | board.theirs()).count() <= params_.GetTempEnds()) {
     temperature = 0.0;
   }
 
@@ -1141,10 +1143,21 @@ void Search::PopulateCommonIterationStats(IterationStats* stats) {
   stats->time_usage_hint_ = IterationStats::TimeUsageHint::kNormal;
   stats->mate_depth = std::numeric_limits<int>::max();
 
-  // Set desired number of visits (for selfplay) based on number of pieces left
+  // Set desired number of visits (for selfplay) based on number of pieces left.
+  // Assume 5 men gaviota is available
   const auto& board = played_history_.Last().GetBoard();
-  if ((board.ours() | board.theirs()).count() <= params_.GetMaxNumberOfPieces()){
-    stats->desired_number_of_visits = 800;
+  if (params_.GetTempEnds() < 32 &&
+      (board.ours() | board.theirs()).count() <= params_.GetTempEnds() &&
+      // go back to standard number of visits when in gaviota-land.
+      (board.ours() | board.theirs()).count() > 5){
+    stats->desired_number_of_visits = 400;
+  }
+  // When in gaviota-land, spend 32 at least visits to cover some policies
+  if (params_.GetTempEnds() < 32 &&
+      (board.ours() | board.theirs()).count() <= params_.GetTempEnds() &&
+      // go back to standard number of visits when in gaviota-land.
+      (board.ours() | board.theirs()).count() <= 5){
+    stats->desired_number_of_visits = 32;
   }
 
   // If root node hasn't finished first visit, none of this code is safe.

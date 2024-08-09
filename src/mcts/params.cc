@@ -179,6 +179,8 @@ const OptionId SearchParams::kMaxPrefetchBatchId{
     "When the engine cannot gather a large enough batch for immediate use, try "
     "to prefetch up to X positions which are likely to be useful soon, and put "
     "them into cache."};
+const OptionId SearchParams::kTempEndsId{"temp-ends", "TempEnds",
+                                "End temperature with this many pieces left."};
 const OptionId SearchParams::kCpuctId{
     "cpuct", "CPuct",
     "cpuct_init constant from \"UCT search\" algorithm. Higher values promote "
@@ -319,10 +321,10 @@ const OptionId SearchParams::kSyzygyFastPlayId{
     "syzygy-fast-play", "SyzygyFastPlay",
     "With DTZ tablebase files, only allow the network pick from winning moves "
     "that have shortest DTZ to play faster (but not necessarily optimally)."};
-const OptionId SearchParams::kMaxNumberOfPiecesId{
-    "max-number-of-pieces", "MaxNumberOfPieces",
-    "When only this number of pieces remain on the board, ignore the visits "
-    "parameter and use more visits."};
+// const OptionId SearchParams::kMaxNumberOfPiecesId{
+//     "max-number-of-pieces", "MaxNumberOfPieces",
+//     "When only this number of pieces remain on the board, ignore the visits "
+//     "parameter and use more visits."};
 const OptionId SearchParams::kMultiPvId{
     "multipv", "MultiPV",
     "Number of game play lines (principal variations) to show in UCI info "
@@ -489,6 +491,7 @@ void SearchParams::Populate(OptionsParser* options) {
   // Many of them are overridden with training specific values in tournament.cc.
   options->Add<IntOption>(kMiniBatchSizeId, 0, 1024) = 0;
   options->Add<IntOption>(kMaxPrefetchBatchId, 0, 1024) = DEFAULT_MAX_PREFETCH;
+  options->Add<IntOption>(kTempEndsId, 2, 32) = 32;  
   options->Add<FloatOption>(kCpuctId, 0.0f, 100.0f) = 1.745f;
   options->Add<FloatOption>(kCpuctAtRootId, 0.0f, 100.0f) = 1.745f;
   options->Add<FloatOption>(kCpuctBaseId, 1.0f, 1000000000.0f) = 38739.0f;
@@ -528,7 +531,7 @@ void SearchParams::Populate(OptionsParser* options) {
   options->Add<FloatOption>(kMaxOutOfOrderEvalsFactorId, 0.0f, 100.0f) = 2.4f;
   options->Add<BoolOption>(kStickyEndgamesId) = true;
   options->Add<BoolOption>(kSyzygyFastPlayId) = false;
-  options->Add<IntOption>(kMaxNumberOfPiecesId, 2, 32) = 5;
+  // options->Add<IntOption>(kMaxNumberOfPiecesId, 2, 32) = 5;
   options->Add<IntOption>(kMultiPvId, 1, 500) = 1;
   options->Add<BoolOption>(kPerPvCountersId) = false;
   std::vector<std::string> score_type = {"centipawn",
@@ -607,6 +610,7 @@ void SearchParams::Populate(OptionsParser* options) {
 
 SearchParams::SearchParams(const OptionsDict& options)
     : options_(options),
+      kTempEnds(options.Get<int>(kTempEndsId)),		   
       kCpuct(options.Get<float>(kCpuctId)),
       kCpuctAtRoot(options.Get<float>(
           options.Get<bool>(kRootHasOwnCpuctParamsId) ? kCpuctAtRootId
@@ -638,7 +642,7 @@ SearchParams::SearchParams(const OptionsDict& options)
       kOutOfOrderEval(options.Get<bool>(kOutOfOrderEvalId)),
       kStickyEndgames(options.Get<bool>(kStickyEndgamesId)),
       kSyzygyFastPlay(options.Get<bool>(kSyzygyFastPlayId)),
-      kMaxNumberOfPieces(options.Get<int>(kMaxNumberOfPiecesId)),
+      // kMaxNumberOfPieces(options.Get<int>(kMaxNumberOfPiecesId)),
       kHistoryFill(EncodeHistoryFill(options.Get<std::string>(kHistoryFillId))),
       kMiniBatchSize(options.Get<int>(kMiniBatchSizeId)),
       kMovesLeftMaxEffect(options.Get<float>(kMovesLeftMaxEffectId)),

@@ -178,7 +178,7 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
   // find out which side first reached the highest goal that was reached, and what that goal was.
   // move N leads to position N+1 since position 1 is not proceeded by any move. On the other hand is training_data_ a zero based vector, and move N is included in traning_data_[N].
   
-  LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength();
+  LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength() << "size of positions_" << positions_.size();
   struct {
     long unsigned int number_of_legal_moves;
     bool is_in_check;
@@ -199,7 +199,8 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
     // "Finally, if a game does end due to a 50-move rule, then the final position is ignored for the purposes of computing the best achieved G-score, unless it is stalemate, as explained above."
     // https://wiki.chessdom.org/R-Mobility#Point_scoring
 
-  for(int i = 1; i <= Last().GetRule50Ply(); i++){
+  // When starting from a FEN game history can be shorter than what the 50 move rule suggests.
+  for(int i = 1; i <= Last().GetRule50Ply() && static_cast<long unsigned int>(i) < positions_.size(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
     if(i == Last().GetRule50Ply()){
@@ -367,7 +368,7 @@ int PositionHistory::IndexOfFirstPositionWithKPieces(int k) const {
   const auto& board = GetPositionAt(GetLength() - 1).GetBoard();
   int counter = 0;
   int number_of_pieces = (board.ours() | board.theirs()).count();
-  LOGFILE << "number of pieces in the ending position: " << number_of_pieces << " after move " << GetLength() - 1;
+  LOGFILE << "IndexOfFirstPositionWithKPieces called with argument k=" << k << " number of pieces in the ending position: " << number_of_pieces << " after move " << GetLength() - 1;
   while(number_of_pieces <= k){
     counter++;
     const auto& board = GetPositionAt(GetLength() - 1 - counter).GetBoard();

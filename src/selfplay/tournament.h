@@ -111,11 +111,13 @@ class SelfPlayTournament {
   const int kTotalGames;
   const bool kShareTree;
   const size_t kParallelism;
+  const int kTempEnds;  
   const bool kTraining;
   const float kResignPlaythrough;
   const int kPolicyGamesSize;
   const int kValueGamesSize;
   int multi_games_size_;
+  // const int kMaxNumberOfPieces;
   const std::string kTournamentResultsFile;
   const float kDiscardedStartChance;
 };
