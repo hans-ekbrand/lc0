@@ -111,7 +111,7 @@ class SelfPlayTournament {
   const int kTotalGames;
   const bool kShareTree;
   const size_t kParallelism;
-  const int kTempEnds;  
+  const int kTempEndsT;  
   const bool kTraining;
   const float kResignPlaythrough;
   const int kPolicyGamesSize;

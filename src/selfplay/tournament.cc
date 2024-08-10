@@ -49,7 +49,7 @@ const OptionId kTotalGamesId{
     "length, or double book length if mirrored."};
 const OptionId kParallelGamesId{"parallelism", "Parallelism",
                                 "Number of games to play in parallel."};
-const OptionId kTempEndsId{"temp-ends", "TempEnds",
+const OptionId kTempEndsTId{"temp-ends-t", "TempEndsT",
                                 "End temperature with this many pieces left."};
 const OptionId kThreadsId{
     "threads", "Threads",
@@ -130,7 +130,7 @@ void SelfPlayTournament::PopulateOptions(OptionsParser* options) {
   options->Add<BoolOption>(kShareTreesId) = true;
   options->Add<IntOption>(kTotalGamesId, -2, 999999) = -1;
   options->Add<IntOption>(kParallelGamesId, 1, 256) = 8;
-  options->Add<IntOption>(kTempEndsId, 2, 32) = 8;  
+  options->Add<IntOption>(kTempEndsTId, 2, 32) = 8;  
   options->Add<IntOption>(kPlayoutsId, -1, 999999999) = -1;
   options->Add<IntOption>(kVisitsId, -1, 999999999) = -1;
   options->Add<IntOption>(kTimeMsId, -1, 999999999) = -1;
@@ -154,7 +154,7 @@ void SelfPlayTournament::PopulateOptions(OptionsParser* options) {
 
   auto defaults = options->GetMutableDefaultsOptions();
   // Shows the default, not the user set value
-  std::cerr << "foo 1:" << defaults->Get<int>(kTempEndsId) << std::endl;
+  // std::cerr << "foo 1:" << defaults->Get<int>(kTempEndsTId) << std::endl;
 
   defaults->Set<int>(SearchParams::kMiniBatchSizeId, 32);
   defaults->Set<float>(SearchParams::kCpuctId, 1.2f);
@@ -197,7 +197,7 @@ SelfPlayTournament::SelfPlayTournament(
       kTotalGames(options.Get<int>(kTotalGamesId)),
       kShareTree(options.Get<bool>(kShareTreesId)),
       kParallelism(options.Get<int>(kParallelGamesId)),
-      kTempEnds(options.Get<int>(kTempEndsId)),      
+      kTempEndsT(options.Get<int>(kTempEndsTId)),      
       kTraining(options.Get<bool>(kTrainingId)),
       kResignPlaythrough(options.Get<float>(kResignPlaythroughId)),
       kPolicyGamesSize(options.Get<int>(kPolicyModeSizeId)),
@@ -320,9 +320,9 @@ SelfPlayTournament::SelfPlayTournament(
     gaviotaEnabled_ = std::make_unique<bool>(false);
   }
 
-  std::cerr << "TempEnds: " << kTempEnds << std::endl;
-    // kTempEnds has the chosen number of pieces. For now, the user
-    // has to give it both as TempEnds and as MaxNumberOfPieces since
+  // std::cerr << "TempEndsT: " << kTempEndsT << std::endl;
+    // kTempEndsT has the chosen number of pieces. For now, the user
+    // has to give it both as TempEndsT and as MaxNumberOfPieces since
     // there is no (easy) way to propagate the value of TempEnds to search().
   
 }
@@ -469,7 +469,7 @@ SelfPlayTournament::SelfPlayTournament(
       // Determine the number of moves played with at most k pieces on the board.
       // int k = kTempEnds;
       // int k = player_options_[0][color_idx[0]].Get<int>(kMaxNumberOfPiecesId);
-      int index_of_first_position_with_k_pieces = game.GetGameTree()->GetPositionHistory().IndexOfFirstPositionWithKPieces(kTempEnds);
+      int index_of_first_position_with_k_pieces = game.GetGameTree()->GetPositionHistory().IndexOfFirstPositionWithKPieces(kTempEndsT);
       LOGFILE << "game_info.moves.size() is: " << game_info.moves.size();
       // includes the moves in the opening book. (start_ply)
       // if no such position was found, 1 + index of last position is returned. which gives a negative width range, which makes sure no training data is saved.

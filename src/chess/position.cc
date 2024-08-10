@@ -178,7 +178,7 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
   // find out which side first reached the highest goal that was reached, and what that goal was.
   // move N leads to position N+1 since position 1 is not proceeded by any move. On the other hand is training_data_ a zero based vector, and move N is included in traning_data_[N].
   
-  LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength() << "size of positions_" << positions_.size();
+  LOGFILE << "Calculating R mobility score. The value of rule50_ply_ for the previous position was " << Last().GetRule50Ply() << ", number of elements in history: " << GetLength() << " size of positions_: " << positions_.size();
   struct {
     long unsigned int number_of_legal_moves;
     bool is_in_check;
@@ -366,17 +366,17 @@ int PositionHistory::IndexOfFirstPositionWithKPieces(int k) const {
   // the first position to train on should be m.
   // GetLength() = number of plies + 1.
   const auto& board = GetPositionAt(GetLength() - 1).GetBoard();
-  int counter = 0;
+  int counter = 1;
   int number_of_pieces = (board.ours() | board.theirs()).count();
   LOGFILE << "IndexOfFirstPositionWithKPieces called with argument k=" << k << " number of pieces in the ending position: " << number_of_pieces << " after move " << GetLength() - 1;
-  while(number_of_pieces <= k){
+  while((number_of_pieces <= k) && (counter < GetLength())){
     counter++;
-    const auto& board = GetPositionAt(GetLength() - 1 - counter).GetBoard();
+    const auto& board = GetPositionAt(GetLength() - counter).GetBoard();
     number_of_pieces = (board.ours() | board.theirs()).count();
   }
   if(counter > 0){
     // LOGFILE << "IndexOfFirstPositionWithKPieces has GetLength(): " << GetLength();
-    return GetLength() - 1 - counter;
+    return GetLength() - counter;
   } else {
     LOGFILE << "IndexOfFirstPositionWithKPieces() returning: " << GetLength() << " this should imply no training data being saved";
     return GetLength();
@@ -399,7 +399,7 @@ int PositionHistory::LocatePeakRmobilityScore() const {
   int index_of_peak_rmobility_score = 0;
   int index_of_last_position_to_save = 0;
   uint8_t result_as_int;
-  for(int i = 1; i <= Last().GetRule50Ply(); i++){
+  for(int i = 1; i <= Last().GetRule50Ply() && static_cast<long unsigned int>(i) < positions_.size(); i++){
     // does the current position equal or beat the previous goal AND beat G10.0 which is best non-winning position?
     const auto& board = GetPositionAt(GetLength() - i).GetBoard();
     auto legal_moves = board.GenerateLegalMoves();

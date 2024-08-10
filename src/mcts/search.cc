@@ -361,7 +361,7 @@ Search::Search(const NodeTree& tree, Network* network,
           params_.GetSyzygyFastPlay(), &tb_hits_, &root_is_in_dtz_, &gaviotaEnabled)),
       uci_responder_(std::move(uci_responder)) {
 
-  LOGFILE << "TempEnds found by search: " << params_.GetTempEnds();
+  // LOGFILE << "TempEnds found by search: " << params_.GetTempEnds();
 			     
   if (params_.GetMaxConcurrentSearchers() != 0) {
     pending_searchers_.store(params_.GetMaxConcurrentSearchers(),
