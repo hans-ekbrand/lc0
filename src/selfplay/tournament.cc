@@ -50,7 +50,8 @@ const OptionId kTotalGamesId{
 const OptionId kParallelGamesId{"parallelism", "Parallelism",
                                 "Number of games to play in parallel."};
 const OptionId kTempEndsTId{"temp-ends-t", "TempEndsT",
-                                "End temperature with this many pieces left."};
+     "Start plaing with 400 npm, and save positions, when board has this "
+     "many pieces left."};
 const OptionId kThreadsId{
     "threads", "Threads",
     "Number of (CPU) worker threads to use for every game,", 't'};
