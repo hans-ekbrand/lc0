@@ -924,6 +924,8 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
   const float draw_score = GetDrawScore(is_odd_depth);
   // Best child is selected using the following criteria:
   // * Prefer shorter terminal wins / avoid shorter terminal losses.
+  // * Only count check mate as terminal win, not stalemate and
+  //   other r-mobility extension.
   // * Largest number of playouts.
   // * If two nodes have equal number:
   //   * If that number is 0, the one with larger prior wins.
@@ -956,10 +958,10 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
 
         auto GetEdgeRank = [](const EdgeAndNode& edge) {
 
-	  // R-mobility support: do not prefer terminal stalemate!
-	  // Just prefer better wdl at all times.
-	  return kNonTerminal;
-	  
+	  // What are the possible retrun values?
+	  // kNonTerminal; kTerminalLoss; kTerminalWin; kTablebaseLoss; kTablebaseWin
+	  // To support R-mobility, make sure kTerminalWin does not include stalemate since that will make Leela prefer stalemate.
+	  	  
           // This default isn't used as wl only checked for case edge is
           // terminal.
           const auto wl = edge.GetWL(0.0f);
@@ -970,7 +972,12 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
           if (edge.IsTbTerminal()) {
             return wl < 0.0 ? kTablebaseLoss : kTablebaseWin;
           }
-          return wl < 0.0 ? kTerminalLoss : kTerminalWin;
+	  // Here we need some finesse: only checkmate terminals are "terminal"
+	  if (wl < -0.6) return kTerminalLoss;
+	  if (wl > 0.6) return kTerminalWin;
+          // return wl < 0.0 ? kTerminalLoss : kTerminalWin;
+
+	  return kNonTerminal;
         };
 
         // If moves have different outcomes, prefer better outcome.
