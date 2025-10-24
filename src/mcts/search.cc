@@ -245,6 +245,7 @@ MoveList MakeRootMoveFilter(const MoveList& searchmoves,
   if (gaviotaEnabled && (board.ours() | board.theirs()).count() <= 5 &&
       root_probe_gaviota(history.Last(), &root_moves)){
     tb_hits->fetch_add(1, std::memory_order_acq_rel);
+    // LOGFILE << "Gaviota proded at root"; 
   } else {
     // Try syzygy instead
     if (!syzygy_tb || !board.castlings().no_legal_castle() ||
@@ -902,9 +903,29 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
     temperature = 0.0;
   }
 
-  auto bestmove_edge = temperature
-                           ? GetBestRootChildWithTemperature(temperature)
-                           : GetBestChildNoTemperature(root_node_, 0);
+  EdgeAndNode bestmove_edge;
+
+  if (params_.GetTempEnds() < 32 && 
+      (board.ours() | board.theirs()).count() > params_.GetTempEnds()) {
+    // TempEnds is set and were are still in the "opening"
+    // pick a random edge
+    int num_edges = root_node_->GetNumEdges();
+    // LOGFILE << "number of edges " << num_edges << "\n";
+    int picked_edge_index = Random::Get().GetInt(0, num_edges);
+    LOGFILE << "randomly selected edge with index " << picked_edge_index << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - picked_edge_index << "\n";	    
+    int i = 0;
+    for (const auto& child : root_node_->Edges()) {
+      if (i++ == picked_edge_index) {
+	bestmove_edge = child;
+	LOGFILE << "actually picked edge with index " << i << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - i << "\n";	
+	break; }
+    }
+  } else {
+    bestmove_edge = temperature
+      ? GetBestRootChildWithTemperature(temperature)
+      : GetBestChildNoTemperature(root_node_, 0);
+  }
+  
   final_bestmove_ = bestmove_edge.GetMove(played_history_.IsBlackToMove());
 
   if (bestmove_edge.GetN() > 0 && bestmove_edge.node()->HasChildren()) {
@@ -969,14 +990,30 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
           if (edge.GetN() == 0 || !edge.IsTerminal() || !wl) {
             return kNonTerminal;
           }
-          if (edge.IsTbTerminal()) {
-            return wl < 0.0 ? kTablebaseLoss : kTablebaseWin;
-          }
 	  // Here we need some finesse: only checkmate terminals are "terminal"
-	  if (wl < -0.6) return kTerminalLoss;
-	  if (wl > 0.6) return kTerminalWin;
-          // return wl < 0.0 ? kTerminalLoss : kTerminalWin;
-
+	  // stalemate is 0.5, use 0.6 instead of 0.5 to avoid any rounding problems with floats	  
+          if (edge.IsTbTerminal()) {
+            // return wl < 0.0 ? kTablebaseLoss : kTablebaseWin;
+	    // The above should be safe since I do not yet have tablebases that uses r-mobility scoring.
+	    // But, to err on the side of caution.
+	    if (wl < -0.6) {
+	      // LOGFILE << "Tablebase loss found at one edge from root: " << edge.DebugString();
+		return kTablebaseLoss; }
+	    if (wl > 0.6) {
+	      // LOGFILE << "Tablebase win found at one edge from root: " << edge.DebugString();	      
+		return kTablebaseWin;
+	    }
+	  }
+	  if (edge.IsTerminal()) {
+	    if (wl < -0.6) {
+	      // LOGFILE << "Non-Tablebase terminal loss found at one edge from root:" << edge.DebugString();
+	      return kTerminalLoss;
+	    }
+	    if (wl > 0.6) {
+	      // LOGFILE << "Non-Tablebase terminal win found at one edge from root." << edge.DebugString();
+	      return kTerminalWin;
+	    }
+	  }
 	  return kNonTerminal;
         };
 
