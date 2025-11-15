@@ -911,7 +911,7 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
     // pick a random edge
     int num_edges = root_node_->GetNumEdges();
     // LOGFILE << "number of edges " << num_edges << "\n";
-    int picked_edge_index = Random::Get().GetInt(0, num_edges);
+    int picked_edge_index = Random::Get().GetInt(0, num_edges - 1);
     LOGFILE << "randomly selected edge with index " << picked_edge_index << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - picked_edge_index << "\n";	    
     int i = 0;
     for (const auto& child : root_node_->Edges()) {
