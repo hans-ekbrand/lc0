@@ -860,71 +860,80 @@ void ProcessFile(const std::string& file, SyzygyTablebase* tablebase,
       }
       // std::cout << "Modifying plies left finished. \n";            
 
-      // Correct plies_left using Gaviota TBs for 5 piece and less positions.
-      if (gaviotaEnabled && !all_draws) {
-        PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
-                      &board, &rule50ply, &gameply);
-        history.Reset(board, rule50ply, gameply);
-        int last_rescore = 0;
-        for (long unsigned int i = 0; i < moves.size(); i++) {
-          history.Append(moves[i]);
-          const auto& board = history.Last().GetBoard();
+      // Why is gaviota rescoring of plies left uncommented below?
+      // For two reasons:
+      // 1. The definition of draw was result = 0,
+      // which is too narrow for r-mobility. moves-left in games that are
+      // drawn in classical chess will be altered to show DTM from gaviota.
+      // 2. We use gaviota during selfplay anyway, so we already have a
+      // perfect score.
 
-          // Gaviota TBs don't have 50 move rule.
-          // Only consider positions that are not draw after rescoring.
-          if ((ResultForData(fileContents[i + 1]) != 0) &&
-              board.castlings().no_legal_castle() &&
-              (board.ours() | board.theirs()).count() <= 5) {
-            std::vector<int> dtms;
-            unsigned int info;
-            unsigned int dtm;
-            gaviota_tb_probe_hard(history.Last(), info, dtm);
-            if (info != tb_WMATE && info != tb_BMATE) {
-              // Not a win for either player.
-              continue;
-            }
-            int steps = history.Last().GetRule50Ply();
-            if ((dtm + steps > 99) && (dtm <= fileContents[i + 1].plies_left)) {
-              // Following DTM could trigger 50 move rule and the current
-              // move_count is more than DTM.
-              // If DTM is more than the current move_count then we can rescore
-              // using it since DTM50 is not shorter than DTM.
-              continue;
-            }
-            bool no_reps = true;
-            for (int i = 0; i < steps; i++) {
-              // If game started from non-zero 50 move rule, this could
-              // underflow. Only safe option is to assume there were repetitions
-              // before this point.
-              if (history.GetLength() - i - 1 < 0) {
-                no_reps = false;
-                break;
-              }
-              if (history.GetPositionAt(history.GetLength() - i - 1)
-                      .GetRepetitions() != 0) {
-                no_reps = false;
-                break;
-              }
-            }
-            if (!no_reps) {
-              // There were repetitions. Do nothing since DTM path
-              // could trigger draw by repetition.
-              continue;
-            }
-            gaviota_dtm_rescores++;
-            int j;
-            for (j = i; j >= -1; j--) {
-              if (j <= last_rescore) {
-                break;
-              }
-              // std::cerr << j << " " << int(fileContents[j + 1].move_count) <<
-              // " -> " << int(dtm + (i - j)) << std::endl;
-              fileContents[j + 1].plies_left = int(dtm + (i - j));
-            }
-            last_rescore = i;
-          }
-        }
-      }
+      
+      // // Correct plies_left using Gaviota TBs for 5 piece and less positions.
+      // if (gaviotaEnabled && !all_draws) {
+      //   PopulateBoard(input_format, PlanesFromTrainingData(fileContents[0]),
+      //                 &board, &rule50ply, &gameply);
+      //   history.Reset(board, rule50ply, gameply);
+      //   int last_rescore = 0;
+      //   for (long unsigned int i = 0; i < moves.size(); i++) {
+      //     history.Append(moves[i]);
+      //     const auto& board = history.Last().GetBoard();
+
+      //     // Gaviota TBs don't have 50 move rule.
+      //     // Only consider positions that are not draw after rescoring.
+      //     if ((ResultForData(fileContents[i + 1]) != 0) &&
+      //         board.castlings().no_legal_castle() &&
+      //         (board.ours() | board.theirs()).count() <= 5) {
+      //       std::vector<int> dtms;
+      //       unsigned int info;
+      //       unsigned int dtm;
+      //       gaviota_tb_probe_hard(history.Last(), info, dtm);
+      //       if (info != tb_WMATE && info != tb_BMATE) {
+      //         // Not a win for either player.
+      //         continue;
+      //       }
+      //       int steps = history.Last().GetRule50Ply();
+      //       if ((dtm + steps > 99) && (dtm <= fileContents[i + 1].plies_left)) {
+      //         // Following DTM could trigger 50 move rule and the current
+      //         // move_count is more than DTM.
+      //         // If DTM is more than the current move_count then we can rescore
+      //         // using it since DTM50 is not shorter than DTM.
+      //         continue;
+      //       }
+      //       bool no_reps = true;
+      //       for (int i = 0; i < steps; i++) {
+      //         // If game started from non-zero 50 move rule, this could
+      //         // underflow. Only safe option is to assume there were repetitions
+      //         // before this point.
+      //         if (history.GetLength() - i - 1 < 0) {
+      //           no_reps = false;
+      //           break;
+      //         }
+      //         if (history.GetPositionAt(history.GetLength() - i - 1)
+      //                 .GetRepetitions() != 0) {
+      //           no_reps = false;
+      //           break;
+      //         }
+      //       }
+      //       if (!no_reps) {
+      //         // There were repetitions. Do nothing since DTM path
+      //         // could trigger draw by repetition.
+      //         continue;
+      //       }
+      //       gaviota_dtm_rescores++;
+      //       int j;
+      //       for (j = i; j >= -1; j--) {
+      //         if (j <= last_rescore) {
+      //           break;
+      //         }
+      //         // std::cerr << j << " " << int(fileContents[j + 1].move_count) <<
+      //         // " -> " << int(dtm + (i - j)) << std::endl;
+      //         fileContents[j + 1].plies_left = int(dtm + (i - j));
+      //       }
+      //       last_rescore = i;
+      //     }
+      //   }
+      // }
       
       /*
       def apply_alpha(qs, alpha):
