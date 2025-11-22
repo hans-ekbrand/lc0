@@ -212,7 +212,10 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
       best_goal.is_in_check = board.IsUnderCheck();
       best_goal.white_is_best_player = is_black_to_move;
       // This fits the order defined in position.h line 97
-      result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
+      int base = is_black_to_move ? 22 : 1; // 1 for black G1.0, 22 for white G1.0
+      result_as_int = base + 2 * legal_moves.size() + !board.IsUnderCheck();
+      // Old wrong code that worked correctly for black but wrong for white.
+      // result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
       LOGFILE << "result_as_int = " << +result_as_int;
       result = static_cast<GameResult>(result_as_int);
       if(best_goal.white_is_best_player){
