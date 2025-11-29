@@ -40,6 +40,7 @@
 #include "mcts/node.h"
 #include "neural/cache.h"
 #include "neural/encoder.h"
+#include "utils/logging.h"
 #include "utils/fastmath.h"
 #include "utils/random.h"
 #include "utils/spinhelper.h"
@@ -509,7 +510,11 @@ void Search::SendUciInfo() REQUIRES(nodes_mutex_) REQUIRES(counters_mutex_) {
           sign, true, params_.GetWDLMaxS());
     }
     const auto q = edge.GetQ(default_q, draw_score);
-    if (edge.IsTerminal() && wl != 0.0f) {
+    // if (edge.IsTerminal() && wl != 0.0f) {
+    // Don't claim mate when it is only stale mate (0.5)
+    // Proper mates have q > 0.6 or q < -0.6. Or is it actually just q > 0.6? Let's keep this log statement until we find out which it is.
+    if (edge.IsTerminal() && ((wl > 0.6f) || (wl < -0.6f))) {
+      LOGFILE << "Found terminal edge with q=" << wl << " triggering mate score in SendUciInfo()";
       uci_info.mate = std::copysign(
           std::round(edge.GetM(0.0f)) / 2 + (edge.IsTbTerminal() ? 101 : 1),
           wl);
@@ -912,12 +917,12 @@ void Search::EnsureBestMoveKnown() REQUIRES(nodes_mutex_)
     int num_edges = root_node_->GetNumEdges();
     // LOGFILE << "number of edges " << num_edges << "\n";
     int picked_edge_index = Random::Get().GetInt(0, num_edges - 1);
-    LOGFILE << "randomly selected edge with index " << picked_edge_index << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - picked_edge_index << "\n";	    
+    // LOGFILE << "randomly selected edge with index " << picked_edge_index << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - picked_edge_index << "\n";	    
     int i = 0;
     for (const auto& child : root_node_->Edges()) {
       if (i++ == picked_edge_index) {
 	bestmove_edge = child;
-	LOGFILE << "actually picked edge with index " << i << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - i << "\n";	
+	// LOGFILE << "actually picked edge with index " << i << "out of " << num_edges << " number of edges minus picked edge: " << num_edges - i << "\n";	
 	break; }
     }
   } else {
@@ -997,20 +1002,20 @@ std::vector<EdgeAndNode> Search::GetBestChildrenNoTemperature(Node* parent,
 	    // The above should be safe since I do not yet have tablebases that uses r-mobility scoring.
 	    // But, to err on the side of caution.
 	    if (wl < -0.6) {
-	      // LOGFILE << "Tablebase loss found at one edge from root: " << edge.DebugString();
+	      LOGFILE << "Tablebase loss found at one edge from root: " << edge.DebugString();
 		return kTablebaseLoss; }
 	    if (wl > 0.6) {
-	      // LOGFILE << "Tablebase win found at one edge from root: " << edge.DebugString();	      
+	      LOGFILE << "Tablebase win found at one edge from root: " << edge.DebugString();	      
 		return kTablebaseWin;
 	    }
 	  }
 	  if (edge.IsTerminal()) {
 	    if (wl < -0.6) {
-	      // LOGFILE << "Non-Tablebase terminal loss found at one edge from root:" << edge.DebugString();
+	      LOGFILE << "Non-Tablebase terminal loss found at one edge from root:" << edge.DebugString();
 	      return kTerminalLoss;
 	    }
 	    if (wl > 0.6) {
-	      // LOGFILE << "Non-Tablebase terminal win found at one edge from root." << edge.DebugString();
+	      LOGFILE << "Non-Tablebase terminal win found at one edge from root." << edge.DebugString();
 	      return kTerminalWin;
 	    }
 	  }
@@ -1221,10 +1226,10 @@ void Search::PopulateCommonIterationStats(IterationStats* stats) {
       const auto m = m_evaluator.GetMUtility(edge, q);
       const auto q_plus_m = q + m;
       stats->edge_n.push_back(n);
-      if (n > 0 && edge.IsTerminal() && edge.GetWL(0.0f) > 0.0f) {
+      if (n > 0 && edge.IsTerminal() && edge.GetWL(0.0f) > 0.6f) {
         stats->win_found = true;
       }
-      if (n > 0 && edge.IsTerminal() && edge.GetWL(0.0f) < 0.0f) {
+      if (n > 0 && edge.IsTerminal() && edge.GetWL(0.0f) < -0.6f) {
         stats->num_losing_edges += 1;
       }
       if (n > 0 && edge.IsTerminal() && edge.GetWL(0.0f) == 1.0f &&
@@ -2211,7 +2216,8 @@ void SearchWorker::ExtendNode(Node* node, int depth,
       node->MakeTerminal(GameResult::WHITE_WON);
     } else {
       // node->MakeTerminal(GameResult::DRAW);
-      node->MakeTerminal(GameResult::WHITE_STALEMATE);      
+      node->MakeTerminal(GameResult::WHITE_STALEMATE);
+      // LOGFILE << "Flagging a node as terminal with the result stalemate: " << node->GetOwnEdge()->GetMove().as_string();
     }
     return;
   }
@@ -2478,6 +2484,7 @@ void SearchWorker::FetchSingleNodeResult(NodeToProcess* node_to_process,
     node_to_process->v = node->GetWL();
     node_to_process->d = node->GetD();
     node_to_process->m = node->GetM();
+    // LOGFILE << "In FetchSingleNodeResult() with a terminal node, results: q=" << node_to_process->v << " d=" << node_to_process->d << " node: " << node->GetOwnEdge()->GetMove().as_string();
     return;
   }
   // For NN results, we need to populate policy as well as value.
@@ -2567,6 +2574,10 @@ void SearchWorker::DoBackupUpdateSingleNode(
   auto update_parent_bounds =
       params_.GetStickyEndgames() && node->IsTerminal() && !node->GetN();
 
+  // if(node->IsTerminal()){
+  //   LOGFILE << "In DoBackupUpdateSingleNode() with a terminal node, results: q=" << node->GetWL() << " d=" << node->GetD() << " node: " << node->GetOwnEdge()->GetMove().as_string();
+  // }
+
   // Backup V value up to a root. After 1 visit, V = Q.
   float v = node_to_process.v;
   float d = node_to_process.d;
@@ -2607,6 +2618,8 @@ void SearchWorker::DoBackupUpdateSingleNode(
     // If parent already is terminal further adjustment is not required.
     if (p->IsTerminal()) n_to_fix = 0;
     // Try setting parent bounds except the root or those already terminal.
+    // LOGFILE << "In DoBackupUpdateSingleNode() with a node, results: q=" << node->GetWL() << " d=" << node->GetD() << " node: " << node->GetOwnEdge()->GetMove().as_string();    
+    
     update_parent_bounds =
         update_parent_bounds && p != search_->root_node_ && !p->IsTerminal() &&
         MaybeSetBounds(p, m, &n_to_fix, &v_delta, &d_delta, &m_delta);
@@ -2640,6 +2653,9 @@ void SearchWorker::DoBackupUpdateSingleNode(
 bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
                                   float* v_delta, float* d_delta,
                                   float* m_delta) const {
+
+  // LOGFILE << "In MaybeSetBounds() with the node " << p->GetOwnEdge()->GetMove().as_string() << " v_delta=" << v_delta << " d_delta=" << d_delta;
+  
   auto losing_m = 0.0f;
   auto prefer_tb = false;
 
@@ -2653,9 +2669,16 @@ bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
   auto lower = GameResult::BLACK_WON;
   auto upper = GameResult::BLACK_WON;
   for (const auto& edge : p->Edges()) {
+    // if one of the edges has no node, then we can not set bounds on the parent
+    if(edge.HasNode() == false){
+      return(false);
+    }
+    
     const auto [edge_lower, edge_upper] = edge.GetBounds();
     lower = std::max(edge_lower, lower);
     upper = std::max(edge_upper, upper);
+
+    LOGFILE << "In MaybeSetBounds() checking bounds on the edge: " << edge.DebugString();
 
     // Checkmate is the best, so short-circuit.
     const auto is_tb = edge.IsTbTerminal();
@@ -2684,6 +2707,9 @@ bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
   } else if (lower == upper) {
     // Search can stop at the parent if the bounds can't change anymore, so make
     // it terminal preferring shorter wins and longer losses.
+
+    // LOGFILE << "In MaybeSetBounds() lower equals to upper = " << static_cast<int>(lower);
+    
     *n_to_fix = p->GetN();
     assert(*n_to_fix > 0);
     float cur_v = p->GetWL();
