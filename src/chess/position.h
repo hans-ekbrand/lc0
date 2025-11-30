@@ -94,7 +94,59 @@ std::string GetFen(const Position& pos);
 
 // These are ordered so max() prefers the best result.
 // enum class GameResult : uint8_t { UNDECIDED, BLACK_WON, DRAW, WHITE_WON };
-enum class GameResult : uint8_t { UNDECIDED, BLACK_WON, BLACK_STALEMATE, BLACK_G1_0, BLACK_G1_5, BLACK_G2_0, BLACK_G2_5, BLACK_G3_0, BLACK_G3_5, BLACK_G4_0, BLACK_G4_5, BLACK_G5_0, BLACK_G5_5, BLACK_G6_0, BLACK_G6_5, BLACK_G7_0, BLACK_G7_5, BLACK_G8_0, BLACK_G8_5, BLACK_G9_0, BLACK_G9_5, DRAW, WHITE_WON, WHITE_STALEMATE, WHITE_G1_0, WHITE_G1_5, WHITE_G2_0, WHITE_G2_5, WHITE_G3_0, WHITE_G3_5, WHITE_G4_0, WHITE_G4_5, WHITE_G5_0, WHITE_G5_5, WHITE_G6_0, WHITE_G6_5, WHITE_G7_0, WHITE_G7_5, WHITE_G8_0, WHITE_G8_5, WHITE_G9_0, WHITE_G9_5 };
+
+  enum class GameResult : uint8_t {
+  UNDECIDED = 0,
+
+  // Black wins: furthest from draw (checkmate) → closest to draw (G9.5)
+  BLACK_WON        = 1,
+  BLACK_STALEMATE  = 2,
+  BLACK_G1_0       = 3,
+  BLACK_G1_5       = 4,
+  BLACK_G2_0       = 5,
+  BLACK_G2_5       = 6,
+  BLACK_G3_0       = 7,
+  BLACK_G3_5       = 8,
+  BLACK_G4_0       = 9,
+  BLACK_G4_5       = 10,
+  BLACK_G5_0       = 11,
+  BLACK_G5_5       = 12,
+  BLACK_G6_0       = 13,
+  BLACK_G6_5       = 14,
+  BLACK_G7_0       = 15,
+  BLACK_G7_5       = 16,
+  BLACK_G8_0       = 17,
+  BLACK_G8_5       = 18,
+  BLACK_G9_0       = 19,
+  BLACK_G9_5       = 20,
+
+  // Center point
+  DRAW             = 21,
+
+  // White wins: closest to draw (G9.5) → furthest from draw (checkmate)
+  WHITE_G9_5       = 22,
+  WHITE_G9_0       = 23,
+  WHITE_G8_5       = 24,
+  WHITE_G8_0       = 25,
+  WHITE_G7_5       = 26,
+  WHITE_G7_0       = 27,
+  WHITE_G6_5       = 28,
+  WHITE_G6_0       = 29,
+  WHITE_G5_5       = 30,
+  WHITE_G5_0       = 31,
+  WHITE_G4_5       = 32,
+  WHITE_G4_0       = 33,
+  WHITE_G3_5       = 34,
+  WHITE_G3_0       = 35,
+  WHITE_G2_5       = 36,
+  WHITE_G2_0       = 37,
+  WHITE_G1_5       = 38,
+  WHITE_G1_0       = 39,
+  WHITE_STALEMATE  = 40,
+  WHITE_WON        = 41
+};
+
+  // enum class GameResult : uint8_t { UNDECIDED, BLACK_WON, BLACK_STALEMATE, BLACK_G1_0, BLACK_G1_5, BLACK_G2_0, BLACK_G2_5, BLACK_G3_0, BLACK_G3_5, BLACK_G4_0, BLACK_G4_5, BLACK_G5_0, BLACK_G5_5, BLACK_G6_0, BLACK_G6_5, BLACK_G7_0, BLACK_G7_5, BLACK_G8_0, BLACK_G8_5, BLACK_G9_0, BLACK_G9_5, DRAW, WHITE_WON, WHITE_STALEMATE, WHITE_G1_0, WHITE_G1_5, WHITE_G2_0, WHITE_G2_5, WHITE_G3_0, WHITE_G3_5, WHITE_G4_0, WHITE_G4_5, WHITE_G5_0, WHITE_G5_5, WHITE_G6_0, WHITE_G6_5, WHITE_G7_0, WHITE_G7_5, WHITE_G8_0, WHITE_G8_5, WHITE_G9_0, WHITE_G9_5 };
   
 GameResult operator-(const GameResult& res);
 

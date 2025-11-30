@@ -2669,16 +2669,18 @@ bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
   auto lower = GameResult::BLACK_WON;
   auto upper = GameResult::BLACK_WON;
   for (const auto& edge : p->Edges()) {
-    // if one of the edges has no node, then we can not set bounds on the parent
-    if(edge.HasNode() == false){
-      return(false);
-    }
+
+    // // This seems like a bad hack. One check-mate is enough right?
+    // // if one of the edges has no node, then we can not set bounds on the parent
+    // if(edge.HasNode() == false){
+    //   return(false);
+    // }
     
     const auto [edge_lower, edge_upper] = edge.GetBounds();
     lower = std::max(edge_lower, lower);
     upper = std::max(edge_upper, upper);
 
-    LOGFILE << "In MaybeSetBounds() checking bounds on the edge: " << edge.DebugString();
+    LOGFILE << "In MaybeSetBounds() checking bounds on the edge: " << edge.DebugString() << " edge_lower: " << static_cast<int>(edge_lower) << " lower: " << static_cast<int>(lower) << " edge_upper: " << static_cast<int>(edge_upper) << " upper: " << static_cast<int>(upper);
 
     // Checkmate is the best, so short-circuit.
     const auto is_tb = edge.IsTbTerminal();
@@ -2708,7 +2710,7 @@ bool SearchWorker::MaybeSetBounds(Node* p, float m, int* n_to_fix,
     // Search can stop at the parent if the bounds can't change anymore, so make
     // it terminal preferring shorter wins and longer losses.
 
-    // LOGFILE << "In MaybeSetBounds() lower equals to upper = " << static_cast<int>(lower);
+    LOGFILE << "In MaybeSetBounds() lower equals to upper = " << static_cast<int>(lower);
     
     *n_to_fix = p->GetN();
     assert(*n_to_fix > 0);

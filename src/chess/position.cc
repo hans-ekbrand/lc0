@@ -212,8 +212,15 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
       best_goal.is_in_check = board.IsUnderCheck();
       best_goal.white_is_best_player = is_black_to_move;
       // This fits the order defined in position.h line 97
-      int base = is_black_to_move ? 22 : 1; // 1 for black G1.0, 22 for white G1.0
-      result_as_int = base + 2 * legal_moves.size() + !board.IsUnderCheck();
+      const int moves = static_cast<int>(legal_moves.size());
+      if(is_black_to_move) {
+	result_as_int = 1 + 2 * moves + !board.IsUnderCheck();
+      } else {
+	result_as_int = 22 + 2 * (9 - moves) + board.IsUnderCheck();
+      }
+      // newest version for the old enum ordering
+      // int base = is_black_to_move ? 22 : 1; // 1 for black G1.0, 22 for white G1.0
+      // result_as_int = base + 2 * legal_moves.size() + !board.IsUnderCheck();
       // Old wrong code that worked correctly for black but wrong for white.
       // result_as_int = 1 + ! is_black_to_move * 2 * legal_moves.size() + is_black_to_move * 20 + is_black_to_move * 2 * legal_moves.size() + ! board.IsUnderCheck();
       LOGFILE << "result_as_int = " << +result_as_int;
@@ -301,64 +308,64 @@ GameResult PositionHistory::ComputeGameResultRmobility() const {
     LOGFILE << "Result: draw";
     break;
   case 22:
-    LOGFILE << "Result: white won by checkmate";
+    LOGFILE << "Result: white won by r-mobility G9.5";
     break;
   case 23:
-    LOGFILE << "Result: white won by stalemate";
-    break;
-  case 24:
-    LOGFILE << "Result: white won by r-mobility G1.0";
-    break;
-  case 25:
-    LOGFILE << "Result: white won by r-mobility G1.5";
-    break;
-  case 26:
-    LOGFILE << "Result: white won by r-mobility G2.0";
-    break;
-  case 27:
-    LOGFILE << "Result: white won by r-mobility G2.5";
-    break;
-  case 28:
-    LOGFILE << "Result: white won by r-mobility G3.0";
-    break;
-  case 29:
-    LOGFILE << "Result: white won by r-mobility G3.5";
-    break;
-  case 30:
-    LOGFILE << "Result: white won by r-mobility G4.0";
-    break;
-  case 31:
-    LOGFILE << "Result: white won by r-mobility G4.5";
-    break;
-  case 32:
-    LOGFILE << "Result: white won by r-mobility G5.0";
-    break;
-  case 33:
-    LOGFILE << "Result: white won by r-mobility G5.5";
-    break;
-  case 34:
-    LOGFILE << "Result: white won by r-mobility G6.0";
-    break;
-  case 35:
-    LOGFILE << "Result: white won by r-mobility G6.5";
-    break;
-  case 36:
-    LOGFILE << "Result: white won by r-mobility G7.0";
-    break;
-  case 37:
-    LOGFILE << "Result: white won by r-mobility G7.5";
-    break;
-  case 38:
-    LOGFILE << "Result: white won by r-mobility G8.0";
-    break;
-  case 39:
-    LOGFILE << "Result: white won by r-mobility G8.5";
-    break;
-  case 40:
     LOGFILE << "Result: white won by r-mobility G9.0";
     break;
+  case 24:
+    LOGFILE << "Result: white won by r-mobility G8.5";
+    break;
+  case 25:
+    LOGFILE << "Result: white won by r-mobility G8.0";
+    break;
+  case 26:
+    LOGFILE << "Result: white won by r-mobility G7.5";
+    break;
+  case 27:
+    LOGFILE << "Result: white won by r-mobility G7.0";
+    break;
+  case 28:
+    LOGFILE << "Result: white won by r-mobility G6.5";
+    break;
+  case 29:
+    LOGFILE << "Result: white won by r-mobility G6.0";
+    break;
+  case 30:
+    LOGFILE << "Result: white won by r-mobility G5.5";
+    break;
+  case 31:
+    LOGFILE << "Result: white won by r-mobility G5.0";
+    break;
+  case 32:
+    LOGFILE << "Result: white won by r-mobility G4.5";
+    break;
+  case 33:
+    LOGFILE << "Result: white won by r-mobility G4.0";
+    break;
+  case 34:
+    LOGFILE << "Result: white won by r-mobility G3.5";
+    break;
+  case 35:
+    LOGFILE << "Result: white won by r-mobility G3.0";
+    break;
+  case 36:
+    LOGFILE << "Result: white won by r-mobility G2.5";
+    break;
+  case 37:
+    LOGFILE << "Result: white won by r-mobility G2.0";
+    break;
+  case 38:
+    LOGFILE << "Result: white won by r-mobility G1.5";
+    break;
+  case 39:
+    LOGFILE << "Result: white won by r-mobility G1.0";
+    break;
+  case 40:
+    LOGFILE << "Result: white won by stalemate";
+    break;
   case 41:
-    LOGFILE << "Result: white won by r-mobility G9.5";
+    LOGFILE << "Result: white won by checkmate";
     break;
   }
   return result;
